@@ -94,25 +94,19 @@
 #include "cfgApi.h"
 #include "wniCfgAp.h"
 
-#ifdef FEATURE_WLAN_CH_AVOID
-#include "wcnss_wlan.h"
-#endif /* FEATURE_WLAN_CH_AVOID */
-#include "wlan_hdd_trace.h"
-#include "vos_types.h"
-#include "vos_trace.h"
-
 #define    IS_UP(_dev) \
     (((_dev)->flags & (IFF_RUNNING|IFF_UP)) == (IFF_RUNNING|IFF_UP))
 #define    IS_UP_AUTO(_ic) \
     (IS_UP((_ic)->ic_dev) && (_ic)->ic_roaming == IEEE80211_ROAMING_AUTO)
 #define WE_WLAN_VERSION     1
+#define STATS_CONTEXT_MAGIC 0x53544154
 #define WE_GET_STA_INFO_SIZE 30
 /* WEXT limition: MAX allowed buf len for any *
  * IW_PRIV_TYPE_CHAR is 2Kbytes *
  */
 #define WE_SAP_MAX_STA_INFO 0x7FF
 
-#define SAP_24GHZ_CH_COUNT (14)
+#define SAP_24GHZ_CH_COUNT (14) 
 
 #define SAP_MAX_GET_ASSOC_STAS_TIMEOUT    500
 /* Max possible supported rate count
@@ -614,67 +608,13 @@ typedef enum
    RATE_CFG_RATE_GI_SHORT
 } rate_cfg_gi_t;
 
-#ifdef FEATURE_WLAN_CH_AVOID
-/* Channle/Freqency table */
-extern const tRfChannelProps rfChannels[NUM_RF_CHANNELS];
-safeChannelType safeChannels[NUM_20MHZ_RF_CHANNELS] =
-{
-  /*CH  , SAFE, default safe */
-    {1  , VOS_TRUE},      //RF_CHAN_1,
-    {2  , VOS_TRUE},      //RF_CHAN_2,
-    {3  , VOS_TRUE},      //RF_CHAN_3,
-    {4  , VOS_TRUE},      //RF_CHAN_4,
-    {5  , VOS_TRUE},      //RF_CHAN_5,
-    {6  , VOS_TRUE},      //RF_CHAN_6,
-    {7  , VOS_TRUE},      //RF_CHAN_7,
-    {8  , VOS_TRUE},      //RF_CHAN_8,
-    {9  , VOS_TRUE},      //RF_CHAN_9,
-    {10 , VOS_TRUE},      //RF_CHAN_10,
-    {11 , VOS_TRUE},      //RF_CHAN_11,
-    {12 , VOS_TRUE},      //RF_CHAN_12,
-    {13 , VOS_TRUE},      //RF_CHAN_13,
-    {14 , VOS_TRUE},      //RF_CHAN_14,
-    {240, VOS_TRUE},      //RF_CHAN_240,
-    {244, VOS_TRUE},      //RF_CHAN_244,
-    {248, VOS_TRUE},      //RF_CHAN_248,
-    {252, VOS_TRUE},      //RF_CHAN_252,
-    {208, VOS_TRUE},      //RF_CHAN_208,
-    {212, VOS_TRUE},      //RF_CHAN_212,
-    {216, VOS_TRUE},      //RF_CHAN_216,
-    {36 , VOS_TRUE},      //RF_CHAN_36,
-    {40 , VOS_TRUE},      //RF_CHAN_40,
-    {44 , VOS_TRUE},      //RF_CHAN_44,
-    {48 , VOS_TRUE},      //RF_CHAN_48,
-    {52 , VOS_TRUE},      //RF_CHAN_52,
-    {56 , VOS_TRUE},      //RF_CHAN_56,
-    {60 , VOS_TRUE},      //RF_CHAN_60,
-    {64 , VOS_TRUE},      //RF_CHAN_64,
-    {100, VOS_TRUE},      //RF_CHAN_100,
-    {104, VOS_TRUE},      //RF_CHAN_104,
-    {108, VOS_TRUE},      //RF_CHAN_108,
-    {112, VOS_TRUE},      //RF_CHAN_112,
-    {116, VOS_TRUE},      //RF_CHAN_116,
-    {120, VOS_TRUE},      //RF_CHAN_120,
-    {124, VOS_TRUE},      //RF_CHAN_124,
-    {128, VOS_TRUE},      //RF_CHAN_128,
-    {132, VOS_TRUE},      //RF_CHAN_132,
-    {136, VOS_TRUE},      //RF_CHAN_136,
-    {140, VOS_TRUE},      //RF_CHAN_140,
-    {149, VOS_TRUE},      //RF_CHAN_149,
-    {153, VOS_TRUE},      //RF_CHAN_153,
-    {157, VOS_TRUE},      //RF_CHAN_157,
-    {161, VOS_TRUE},      //RF_CHAN_161,
-    {165, VOS_TRUE},      //RF_CHAN_165,
-};
-#endif /* FEATURE_WLAN_CH_AVOID */
-
-/*---------------------------------------------------------------------------
+/*--------------------------------------------------------------------------- 
  *   Function definitions
  *-------------------------------------------------------------------------*/
 /**---------------------------------------------------------------------------
-
+  
   \brief hdd_hostapd_open() - HDD Open function for hostapd interface
-
+  
   This is called in response to ifconfig up
   
   \param  - dev Pointer to net_device structure
@@ -686,8 +626,6 @@ int hdd_hostapd_open (struct net_device *dev)
 {
    ENTER();
 
-   MTRACE(vos_trace(VOS_MODULE_ID_HDD,
-                    TRACE_CODE_HDD_HOSTAPD_OPEN_REQUEST, NO_SESSION, 0));
    //Turn ON carrier state
    netif_carrier_on(dev);
    //Enable all Tx queues  
@@ -780,23 +718,19 @@ int hdd_hostapd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
     if (NULL == pAdapter)
     {
        VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_FATAL,
-          "%s: pAdapter is Null", __func__);
+          "%s: HDD adapter context is Null", __func__);
        ret = -ENODEV;
        goto exit;
     }
 
     if ((!ifr) || (!ifr->ifr_data))
     {
-       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-          FL("ifr or ifr->ifr_data is NULL"));
         ret = -EINVAL;
         goto exit;
     }
 
     if (copy_from_user(&priv_data, ifr->ifr_data, sizeof(hdd_priv_data_t)))
     {
-       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-          FL("failed to copy data from user space"));
         ret = -EFAULT;
         goto exit;
     }
@@ -824,8 +758,6 @@ int hdd_hostapd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
     if (copy_from_user(command, priv_data.buf, priv_data.total_len))
     {
-       VOS_TRACE( VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-          FL("failed to copy data from user space"));
         ret = -EFAULT;
         goto exit;
     }
@@ -845,13 +777,6 @@ int hdd_hostapd_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
         {
             hdd_setP2pOpps(dev, command);
         }
-
-#ifdef FEATURE_WLAN_BATCH_SCAN
-        else if( strncmp(command, "WLS_BATCHING", 12) == 0 )
-        {
-           ret = hdd_handle_batch_scan_ioctl(pAdapter, &priv_data, command);
-        }
-#endif
 
         /*
            command should be a string having format
@@ -1081,9 +1006,7 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
             {                
                 pHddApCtx->uBCStaId = pSapEvent->sapevt.sapStartBssCompleteEvent.staId;
                 //@@@ need wep logic here to set privacy bit
-                vos_status = hdd_softap_Register_BC_STA(pHostapdAdapter, pHddApCtx->uPrivacy);
-                if (!VOS_IS_STATUS_SUCCESS(vos_status))
-                    hddLog(LOGW, FL("Failed to register BC STA %d"), vos_status);
+                hdd_softap_Register_BC_STA(pHostapdAdapter, pHddApCtx->uPrivacy);
             }
             
             if (0 != (WLAN_HDD_GET_CTX(pHostapdAdapter))->cfg_ini->nAPAutoShutOff)
@@ -1207,7 +1130,7 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
 
             if (bAuthRequired || bWPSState == eANI_BOOLEAN_TRUE )
             {
-                vos_status = hdd_softap_RegisterSTA( pHostapdAdapter,
+                hdd_softap_RegisterSTA( pHostapdAdapter,
                                        TRUE,
                                        pHddApCtx->uPrivacy,
                                        pSapEvent->sapevt.sapStationAssocReassocCompleteEvent.staId,
@@ -1215,14 +1138,10 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
                                        0,
                                        (v_MACADDR_t *)wrqu.addr.sa_data,
                                        pSapEvent->sapevt.sapStationAssocReassocCompleteEvent.wmmEnabled);
-
-                if (!VOS_IS_STATUS_SUCCESS(vos_status))
-                    hddLog(LOGW, FL("Failed to register STA %d "MAC_ADDRESS_STR""),
-                                     vos_status, MAC_ADDR_ARRAY(wrqu.addr.sa_data));
             }
             else
             {
-                vos_status = hdd_softap_RegisterSTA( pHostapdAdapter,
+                hdd_softap_RegisterSTA( pHostapdAdapter,
                                        FALSE,
                                        pHddApCtx->uPrivacy,
                                        pSapEvent->sapevt.sapStationAssocReassocCompleteEvent.staId,
@@ -1230,9 +1149,6 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
                                        0,
                                        (v_MACADDR_t *)wrqu.addr.sa_data,
                                        pSapEvent->sapevt.sapStationAssocReassocCompleteEvent.wmmEnabled);
-                if (!VOS_IS_STATUS_SUCCESS(vos_status))
-                    hddLog(LOGW, FL("Failed to register STA %d "MAC_ADDRESS_STR""),
-                                     vos_status, MAC_ADDR_ARRAY(wrqu.addr.sa_data));
             }
 
             // Stop AP inactivity timer
@@ -1277,7 +1193,7 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
             // Lets do abort scan to ensure smooth authentication for client
             if ((pScanInfo != NULL) && pScanInfo->mScanPending)
             {
-                hdd_abort_mac_scan(pHddCtx, eCSR_SCAN_ABORT_DEFAULT);
+                hdd_abort_mac_scan(pHddCtx);
             }
 
             break;
@@ -1330,12 +1246,7 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
                             GFP_KERNEL);
 #endif
             //Update the beacon Interval if it is P2P GO
-            vos_status = hdd_change_mcc_go_beacon_interval(pHostapdAdapter);
-            if (VOS_STATUS_SUCCESS != vos_status)
-            {
-                hddLog(LOGE, "%s: failed to update Beacon interval %d",
-                        __func__, vos_status);
-            }
+            hdd_change_mcc_go_beacon_interval(pHostapdAdapter);
             break;
         case eSAP_WPS_PBC_PROBE_REQ_EVENT:
         {
@@ -1371,7 +1282,6 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
             }
             }
             vos_mem_free(pSapEvent->sapevt.sapAssocStaListEvent.pAssocStas);// Release caller allocated memory here
-            pSapEvent->sapevt.sapAssocStaListEvent.pAssocStas = NULL;
             return VOS_STATUS_SUCCESS;
         case eSAP_INDICATE_MGMT_FRAME:
            hdd_indicateMgmtFrame( pHostapdAdapter, 
@@ -1401,7 +1311,7 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
             wrqu.data.pointer = unknownSTAEvent;
             wrqu.data.length = strlen(unknownSTAEvent);
             we_custom_event_generic = (v_BYTE_t *)unknownSTAEvent;
-            hddLog(LOGE,"%s", unknownSTAEvent);
+            hddLog(LOG1,"%s\n", unknownSTAEvent);
             break;
 
         case eSAP_MAX_ASSOC_EXCEEDED:
@@ -1429,11 +1339,7 @@ VOS_STATUS hdd_hostapd_SAPEventCB( tpSap_Event pSapEvent, v_PVOID_t usrDataForCa
             return VOS_STATUS_SUCCESS;
 
         case eSAP_MAC_TRIG_STOP_BSS_EVENT :
-            vos_status = hdd_stop_p2p_link(pHostapdAdapter, usrDataForCallback);
-            if (!VOS_IS_STATUS_SUCCESS(vos_status))
-            {
-                hddLog(LOGW, FL("hdd_stop_p2p_link failed %d"), vos_status);
-            }
+            hdd_stop_p2p_link(pHostapdAdapter, usrDataForCallback);
             return VOS_STATUS_SUCCESS;
 
         default:
@@ -1477,9 +1383,7 @@ stopbss :
         hdd_hostapd_stop(dev);
 
         /* reclaim all resources allocated to the BSS */
-        vos_status = hdd_softap_stop_bss(pHostapdAdapter);
-        if (!VOS_IS_STATUS_SUCCESS(vos_status))
-             hddLog(LOGW, FL("hdd_softap_stop_bss failed %d"), vos_status);
+        hdd_softap_stop_bss(pHostapdAdapter);
 
         /* once the event is set, structure dev/pHostapdAdapter should
          * not be touched since they are now subject to being deleted
@@ -2058,252 +1962,6 @@ int hdd_hostapd_set_mc_rate
    return rc;
 }
 
-#ifdef FEATURE_WLAN_CH_AVOID
-/**---------------------------------------------------------------------------
-
-  \brief hdd_hostapd_freq_to_chn() -
-
-  Input frequency translated into channel number
-
-  \param  - freq input frequency with order of kHz
-
-  \return - corresponding channel number.
-            incannot find correct channel number, return 0
-
-  --------------------------------------------------------------------------*/
-v_U16_t hdd_hostapd_freq_to_chn
-(
-   v_U16_t   freq
-)
-{
-   int   loop;
-
-   for (loop = 0; loop < NUM_20MHZ_RF_CHANNELS; loop++)
-   {
-      if (rfChannels[loop].targetFreq == freq)
-      {
-         return rfChannels[loop].channelNum;
-      }
-   }
-
-   return (0);
-}
-
-/*==========================================================================
-  FUNCTION    sapUpdateUnsafeChannelList
-
-  DESCRIPTION
-    Function  Undate unsafe channel list table
-
-  DEPENDENCIES
-    NA.
-
-  PARAMETERS
-
-    IN
-    pSapCtx : SAP context pointer, include unsafe channel list
-
-  RETURN VALUE
-    NONE
-============================================================================*/
-void hdd_hostapd_update_unsafe_channel_list(hdd_context_t *pHddCtx,
-                        v_U16_t *unsafeChannelList, v_U16_t unsafeChannelCount)
-{
-   v_U16_t   i, j;
-
-   vos_mem_zero((void *)pHddCtx->unsafeChannelList,
-                sizeof(pHddCtx->unsafeChannelList));
-   if (0 == unsafeChannelCount)
-   {
-      pHddCtx->unsafeChannelCount = 0;
-   }
-   else
-   {
-      vos_mem_copy((void *)pHddCtx->unsafeChannelList,
-                   unsafeChannelList,
-                   unsafeChannelCount * sizeof(tANI_U16));
-      pHddCtx->unsafeChannelCount = unsafeChannelCount;
-   }
-
-   /* Flush, default set all channel safe */
-   for (i = 0; i < NUM_20MHZ_RF_CHANNELS; i++)
-   {
-      safeChannels[i].isSafe = VOS_TRUE;
-   }
-
-   /* Try to find unsafe channel */
-   for (i = 0; i < pHddCtx->unsafeChannelCount; i++)
-   {
-      for (j = 0; j < NUM_20MHZ_RF_CHANNELS; j++)
-      {
-         if(safeChannels[j].channelNumber == pHddCtx->unsafeChannelList[i])
-         {
-            /* Found unsafe channel, update it */
-            safeChannels[j].isSafe = VOS_FALSE;
-            VOS_TRACE(VOS_MODULE_ID_SAP, VOS_TRACE_LEVEL_INFO,
-                      "%s : CH %d is not safe",
-                      __func__, pHddCtx->unsafeChannelList[i]);
-            break;
-         }
-      }
-   }
-
-   return;
-}
-
-/**---------------------------------------------------------------------------
-
-  \brief hdd_hostapd_ch_avoid_cb() -
-
-  Avoid channel notification from FW handler.
-  FW will send un-safe channle list to avoid overwrapping.
-  hostapd should not use notified channel
-
-  \param  - pAdapter HDD adapter pointer
-            indParam channel avoid notification parameter
-
-  \return - None
-
-  --------------------------------------------------------------------------*/
-void hdd_hostapd_ch_avoid_cb
-(
-   void *pAdapter,
-   void *indParam
-)
-{
-   hdd_adapter_t      *pHostapdAdapter = NULL;
-   hdd_context_t      *hddCtxt;
-   tSirChAvoidIndType *chAvoidInd;
-   v_U8_t              rangeLoop;
-   v_U16_t             channelLoop;
-   v_U16_t             dupCheck;
-   v_U16_t             startChannel;
-   v_U16_t             endChannel;
-   v_U16_t             unsafeChannelCount = 0;
-   v_U16_t             unsafeChannelList[NUM_20MHZ_RF_CHANNELS];
-   v_CONTEXT_t         pVosContext;
-   tHddAvoidFreqList   hddAvoidFreqList;
-   tANI_U32            i;
-
-   /* Basic sanity */
-   if ((NULL == pAdapter) || (NULL == indParam))
-   {
-      VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                "%s : Invalid arguments", __func__);
-      return;
-   }
-
-   hddCtxt     = (hdd_context_t *)pAdapter;
-   chAvoidInd  = (tSirChAvoidIndType *)indParam;
-   pVosContext = hddCtxt->pvosContext;
-
-   /* Make unsafe channel list */
-   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-             "%s : band count %d",
-             __func__, chAvoidInd->avoidRangeCount);
-   vos_mem_zero((void *)unsafeChannelList,
-                NUM_20MHZ_RF_CHANNELS * sizeof(v_U16_t));
-   for (rangeLoop = 0; rangeLoop < chAvoidInd->avoidRangeCount; rangeLoop++)
-   {
-      startChannel = hdd_hostapd_freq_to_chn(
-                      chAvoidInd->avoidFreqRange[rangeLoop].startFreq);
-      endChannel   = hdd_hostapd_freq_to_chn(
-                      chAvoidInd->avoidFreqRange[rangeLoop].endFreq);
-      VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-                "%s : start %d : %d, end %d : %d",
-                __func__,
-                chAvoidInd->avoidFreqRange[rangeLoop].startFreq,
-                startChannel,
-                chAvoidInd->avoidFreqRange[rangeLoop].endFreq,
-                endChannel);
-      for (channelLoop = startChannel;
-           channelLoop < (endChannel + 1);
-           channelLoop++)
-      {
-         /* Channel duplicate check routine */
-         for (dupCheck = 0; dupCheck < unsafeChannelCount; dupCheck++)
-         {
-            if (unsafeChannelList[dupCheck] == channelLoop)
-            {
-               /* This channel is duplicated */
-               VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-                      "%s : found duplicated channel %d",
-                      __func__, channelLoop);
-               break;
-            }
-         }
-         if (dupCheck == unsafeChannelCount)
-         {
-            unsafeChannelList[unsafeChannelCount] = channelLoop;
-            unsafeChannelCount++;
-            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-                      "%s : unsafe channel %d, count %d",
-                      __func__,
-                      channelLoop, unsafeChannelCount);
-         }
-         else
-         {
-            /* DUP, do nothing */
-            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-                      "%s : duplicated channel %d",
-                      __func__, channelLoop);
-         }
-      }
-   }
-   /* Update unsafe channel cache
-    * WCN Platform Driver cache */
-   wcnss_set_wlan_unsafe_channel(unsafeChannelList,
-                                 unsafeChannelCount);
-
-   /* Store into local cache
-    * Start with STA and later start SAP
-    * in this scenario, local cache will be used */
-   hdd_hostapd_update_unsafe_channel_list(hddCtxt,
-                                          unsafeChannelList,
-                                          unsafeChannelCount);
-
-   /* generate vendor specific event */
-   vos_mem_zero((void *)&hddAvoidFreqList, sizeof(tHddAvoidFreqList));
-   for (i = 0; i < chAvoidInd->avoidRangeCount; i++)
-   {
-      hddAvoidFreqList.avoidFreqRange[i].startFreq =
-            chAvoidInd->avoidFreqRange[i].startFreq;
-      hddAvoidFreqList.avoidFreqRange[i].endFreq =
-            chAvoidInd->avoidFreqRange[i].endFreq;
-   }
-   hddAvoidFreqList.avoidFreqRangeCount = chAvoidInd->avoidRangeCount;
-
-   wlan_hdd_send_avoid_freq_event(hddCtxt, &hddAvoidFreqList);
-
-   /* Get SAP context first
-    * SAP and P2PGO would not concurrent */
-   pHostapdAdapter = hdd_get_adapter(hddCtxt, WLAN_HDD_SOFTAP);
-   if ((pHostapdAdapter) && (unsafeChannelCount))
-   {
-      VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-                "%s : Current operation channel %d",
-                __func__,
-                pHostapdAdapter->sessionCtx.ap.operatingChannel);
-      for (channelLoop = 0; channelLoop < unsafeChannelCount; channelLoop++)
-      {
-         if (((unsafeChannelList[channelLoop] ==
-               pHostapdAdapter->sessionCtx.ap.operatingChannel)) &&
-             (AUTO_CHANNEL_SELECT ==
-               pHostapdAdapter->sessionCtx.ap.sapConfig.channel))
-         {
-            /* current operating channel is un-safe channel
-             * restart driver */
-            hdd_hostapd_stop(pHostapdAdapter->dev);
-            break;
-         }
-      }
-   }
-
-   return;
-}
-
-#endif /* FEATURE_WLAN_CH_AVOID */
-
 int
 static iw_softap_setparam(struct net_device *dev, 
                           struct iw_request_info *info,
@@ -2420,8 +2078,6 @@ static iw_softap_getparam(struct net_device *dev,
         status = ccmCfgGetInt(hHal, WNI_CFG_ASSOC_STA_LIMIT, (tANI_U32 *)value);
         if (eHAL_STATUS_SUCCESS != status)
         {
-            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                FL("failed to get WNI_CFG_ASSOC_STA_LIMIT from cfg %d"),status);
             ret = -EIO;
         }
         break;
@@ -2429,8 +2085,6 @@ static iw_softap_getparam(struct net_device *dev,
     case QCSAP_PARAM_CLR_ACL:
         if ( VOS_STATUS_SUCCESS != WLANSAP_ClearACL( pVosContext ))
         {
-            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                FL("WLANSAP_ClearACL failed"));
                ret = -EIO;            
         }               
         *value = 0;
@@ -2512,8 +2166,9 @@ int iw_softap_modify_acl(struct net_device *dev, struct iw_request_info *info,
     i++;
     cmd = (int)(*(value+i));
 
-    hddLog(LOG1, "%s: SAP Modify ACL arg0 " MAC_ADDRESS_STR " arg1 %d arg2 %d",
-            __func__, MAC_ADDR_ARRAY(pPeerStaMac), listType, cmd);
+    hddLog(LOG1, "%s: SAP Modify ACL arg0 %02x:%02x:%02x:%02x:%02x:%02x arg1 %d arg2 %d\n",
+            __func__, pPeerStaMac[0], pPeerStaMac[1], pPeerStaMac[2], 
+            pPeerStaMac[3], pPeerStaMac[4], pPeerStaMac[5], listType, cmd);
 
     if (WLANSAP_ModifyACL(pVosContext, pPeerStaMac,(eSapACLType)listType,(eSapACLCmdType)cmd)
             != VOS_STATUS_SUCCESS)
@@ -2702,67 +2357,45 @@ static iw_softap_getassoc_stamacaddr(struct net_device *dev,
                         union iwreq_data *wrqu, char *extra)
 {
     hdd_adapter_t *pHostapdAdapter = (netdev_priv(dev));
+    unsigned int maclist_index;
     hdd_station_info_t *pStaInfo = pHostapdAdapter->aStaInfo;
-    char *buf;
-    int cnt = 0;
-    int left;
-    int ret = 0;
-    /* maclist_index must be u32 to match userspace */
-    u32 maclist_index;
+    char maclist_null = '\0';
+    int cnt = 0, len;
 
-    /*
-     * NOTE WELL: this is a "get" ioctl but it uses an even ioctl
-     * number, and even numbered iocts are supposed to have "set"
-     * semantics.  Hence the wireless extensions support in the kernel
-     * won't correctly copy the result to userspace, so the ioctl
-     * handler itself must copy the data.  Output format is 32-bit
-     * record length, followed by 0 or more 6-byte STA MAC addresses.
-     *
-     * Further note that due to the incorrect semantics, the "iwpriv"
-     * userspace application is unable to correctly invoke this API,
-     * hence it is not registered in the hostapd_private_args.  This
-     * API can only be invoked by directly invoking the ioctl() system
-     * call.
-     */
 
-    /* make sure userspace allocated a reasonable buffer size */
-    if (wrqu->data.length < sizeof(maclist_index)) {
-        hddLog(LOG1, "%s: invalid userspace buffer", __func__);
-        return -EINVAL;
-    }
+    maclist_index = sizeof(unsigned long int);
+    len = wrqu->data.length;
 
-    /* allocate local buffer to build the response */
-    buf = kmalloc(wrqu->data.length, GFP_KERNEL);
-    if (!buf) {
-        hddLog(LOG1, "%s: failed to allocate response buffer", __func__);
-        return -ENOMEM;
-    }
-
-    /* start indexing beyond where the record count will be written */
-    maclist_index = sizeof(maclist_index);
-    left = wrqu->data.length - maclist_index;
-
-    spin_lock_bh(&pHostapdAdapter->staInfo_lock);
-    while ((cnt < WLAN_MAX_STA_COUNT) && (left >= VOS_MAC_ADDR_SIZE)) {
-        if ((pStaInfo[cnt].isUsed) &&
-            (!IS_BROADCAST_MAC(pStaInfo[cnt].macAddrSTA.bytes))) {
-            memcpy(&buf[maclist_index], &(pStaInfo[cnt].macAddrSTA),
-                   VOS_MAC_ADDR_SIZE);
-            maclist_index += VOS_MAC_ADDR_SIZE;
-            left -= VOS_MAC_ADDR_SIZE;
+    spin_lock_bh( &pHostapdAdapter->staInfo_lock );
+    while((cnt < WLAN_MAX_STA_COUNT) && (len > (sizeof(v_MACADDR_t)+1))) {
+        if (TRUE == pStaInfo[cnt].isUsed) {
+            
+            if(!IS_BROADCAST_MAC(pStaInfo[cnt].macAddrSTA.bytes)) {
+                if (copy_to_user((void *)wrqu->data.pointer + maclist_index,
+                    (void *)&(pStaInfo[cnt].macAddrSTA), sizeof(v_MACADDR_t)))
+                {
+                    hddLog(LOG1, "%s: failed to copy data to user buffer", __func__);
+                    return -EFAULT;
+                }
+                maclist_index += sizeof(v_MACADDR_t);
+                len -= sizeof(v_MACADDR_t);
+            }
         }
         cnt++;
-    }
-    spin_unlock_bh(&pHostapdAdapter->staInfo_lock);
+    } 
+    spin_unlock_bh( &pHostapdAdapter->staInfo_lock );
 
-    *((u32 *)buf) = maclist_index;
-    wrqu->data.length = maclist_index;
-    if (copy_to_user(wrqu->data.pointer, buf, maclist_index)) {
-        hddLog(LOG1, "%s: failed to copy response to user buffer", __func__);
-        ret = -EFAULT;
+    if (copy_to_user((void *)wrqu->data.pointer + maclist_index,
+                     (void *)&maclist_null, sizeof(maclist_null)) ||
+        copy_to_user((void *)wrqu->data.pointer,
+                     (void *)&wrqu->data.length, sizeof(wrqu->data.length)))
+    {
+        hddLog(LOG1, "%s: failed to copy data to user buffer", __func__);
+        return -EFAULT;
     }
-    kfree(buf);
-    return ret;
+    wrqu->data.length -= len;
+
+    return 0;
 }
 
 /* Usage:
@@ -2792,8 +2425,9 @@ static iw_softap_disassoc_sta(struct net_device *dev,
      */
     peerMacAddr = (v_U8_t *)(extra);
 
-    hddLog(LOG1, "%s data "  MAC_ADDRESS_STR,
-           __func__, MAC_ADDR_ARRAY(peerMacAddr));
+    hddLog(LOG1, "data %02x:%02x:%02x:%02x:%02x:%02x",
+            peerMacAddr[0], peerMacAddr[1], peerMacAddr[2],
+            peerMacAddr[3], peerMacAddr[4], peerMacAddr[5]);
     hdd_softap_sta_disassoc(pHostapdAdapter, peerMacAddr);
     EXIT();
     return 0;
@@ -2864,9 +2498,9 @@ static iw_softap_commit(struct net_device *dev,
     pHostapdState = WLAN_HDD_GET_HOSTAP_STATE_PTR(pHostapdAdapter);
     pCommitConfig = (s_CommitConfig_t *)extra;
     
-    pConfig = (tsap_Config_t *)vos_mem_malloc(sizeof(tsap_Config_t));
+    pConfig = kmalloc(sizeof(tsap_Config_t), GFP_KERNEL);
     if(NULL == pConfig) {
-        hddLog(LOGE, FL("VOS unable to allocate memory"));
+        hddLog(LOG1, "VOS unable to allocate memory\n");
         return -ENOMEM;
     }
     pConfig->beacon_int =  pCommitConfig->beacon_int;
@@ -3022,8 +2656,6 @@ static iw_softap_commit(struct net_device *dev,
     pHostapdState->bCommit = TRUE;
     if(pHostapdState->vosStatus)
     {
-      VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-           FL("pHostapdState->vosStatus: %d"), pHostapdState->vosStatus);
       return -EIO;
     }
     else
@@ -3152,7 +2784,7 @@ int iw_softap_get_channel_list(struct net_device *dev,
 
     if(eHAL_STATUS_SUCCESS != sme_getSoftApDomain(hHal,(v_REGDOMAIN_t *) &domainIdCurrentSoftap))
     {
-        hddLog(LOGE,FL("Failed to get Domain ID, %d"),domainIdCurrentSoftap);
+        hddLog(LOG1,FL("Failed to get Domain ID, %d \n"),domainIdCurrentSoftap);
         return -EIO;
     }
 
@@ -3582,8 +3214,6 @@ static int iw_get_ap_freq(struct net_device *dev, struct iw_request_info *info,
        if (ccmCfgGetInt(hHal, WNI_CFG_CURRENT_CHANNEL, &channel)
                                                   != eHAL_STATUS_SUCCESS)
        {
-            VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_ERROR,
-                FL("failed to get WNI_CFG_CURRENT_CHANNEL from cfg"));
            return -EIO;
        }
        else
@@ -4098,7 +3728,7 @@ static VOS_STATUS  wlan_hdd_get_classAstats_for_station(hdd_adapter_t *pAdapter,
 
    if (NULL == pAdapter)
    {
-      hddLog(VOS_TRACE_LEVEL_ERROR,"%s: pAdapter is NULL", __func__);
+      hddLog(VOS_TRACE_LEVEL_ERROR,"%s: Padapter is NULL", __func__);
       return VOS_STATUS_E_FAULT;
    }
 
@@ -4123,29 +3753,15 @@ static VOS_STATUS  wlan_hdd_get_classAstats_for_station(hdd_adapter_t *pAdapter,
    {
       lrc = wait_for_completion_interruptible_timeout(&context.completion,
             msecs_to_jiffies(WLAN_WAIT_TIME_STATS));
+      context.magic = 0;
       if (lrc <= 0)
       {
          hddLog(VOS_TRACE_LEVEL_ERROR,
                "%s: SME %s while retrieving link speed",
               __func__, (0 == lrc) ? "timeout" : "interrupt");
+         msleep(50);
       }
    }
-
-   /* either we never sent a request, we sent a request and received a
-      response or we sent a request and timed out.  if we never sent a
-      request or if we sent a request and got a response, we want to
-      clear the magic out of paranoia.  if we timed out there is a
-      race condition such that the callback function could be
-      executing at the same time we are. of primary concern is if the
-      callback function had already verified the "magic" but had not
-      yet set the completion variable when a timeout occurred. we
-      serialize these activities by invalidating the magic while
-      holding a shared spinlock which will cause us to block if the
-      callback is currently executing */
-   spin_lock(&hdd_context_lock);
-   context.magic = 0;
-   spin_unlock(&hdd_context_lock);
-
    return VOS_STATUS_SUCCESS;
 }
 
@@ -4163,7 +3779,7 @@ int iw_get_softap_linkspeed(struct net_device *dev,
    unsigned short staId;
    int len = sizeof(v_U32_t)+1;
    v_BYTE_t macAddress[VOS_MAC_ADDR_SIZE];
-   VOS_STATUS status = VOS_STATUS_E_FAILURE;
+   VOS_STATUS status;
    int rc, valid;
 
    pHddCtx = WLAN_HDD_GET_CTX(pHostapdAdapter);
@@ -4176,37 +3792,37 @@ int iw_get_softap_linkspeed(struct net_device *dev,
        return valid;
    }
 
-   hddLog(VOS_TRACE_LEVEL_INFO, "%s wrqu->data.length= %d\n",
-          __func__, wrqu->data.length);
-
-   if (wrqu->data.length >= MAC_ADDRESS_STR_LEN - 1)
+   hddLog(VOS_TRACE_LEVEL_INFO, "%s wrqu->data.length= %d\n", __func__, wrqu->data.length);
+   if (wrqu->data.length != MAC_ADDRESS_STR_LEN)
    {
-       pmacAddress = kmalloc(MAC_ADDRESS_STR_LEN, GFP_KERNEL);
-       if (NULL == pmacAddress) {
-           hddLog(LOG1, "unable to allocate memory");
-           return -ENOMEM;
-       }
-       if (copy_from_user((void *)pmacAddress,
-          wrqu->data.pointer, MAC_ADDRESS_STR_LEN))
-       {
-           hddLog(LOG1, "%s: failed to copy data to user buffer", __func__);
-           kfree(pmacAddress);
-           return -EFAULT;
-       }
-       pmacAddress[MAC_ADDRESS_STR_LEN] = '\0';
-
-       status = hdd_string_to_hex(pmacAddress, MAC_ADDRESS_STR_LEN, macAddress);
-       kfree(pmacAddress);
-
-       if (!VOS_IS_STATUS_SUCCESS(status ))
-       {
-           hddLog(VOS_TRACE_LEVEL_ERROR, FL("String to Hex conversion Failed"));
-       }
+       hddLog(LOG1, "Invalid length");
+       return -EINVAL;
    }
+   pmacAddress = kmalloc(MAC_ADDRESS_STR_LEN, GFP_KERNEL);
+   if(NULL == pmacAddress) {
+       hddLog(LOG1, "unable to allocate memory");
+       return -ENOMEM;
+   }
+   if (copy_from_user((void *)pmacAddress,
+       wrqu->data.pointer, wrqu->data.length))
+   {
+       hddLog(LOG1, "%s: failed to copy data to user buffer", __func__);
+       kfree(pmacAddress);
+       return -EFAULT;
+   }
+
+   status = hdd_string_to_hex (pmacAddress, wrqu->data.length, macAddress );
+   kfree(pmacAddress);
+
+   if (!VOS_IS_STATUS_SUCCESS(status ))
+   {
+      hddLog(VOS_TRACE_LEVEL_ERROR, FL("String to Hex conversion Failed"));
+   }
+
    /* If no mac address is passed and/or its length is less than 17,
     * link speed for first connected client will be returned.
     */
-   if (wrqu->data.length < 17 || !VOS_IS_STATUS_SUCCESS(status ))
+   if (!VOS_IS_STATUS_SUCCESS(status ) || wrqu->data.length < 17)
    {
       status = hdd_softap_GetConnectedStaId(pHostapdAdapter, (void *)(&staId));
    }
@@ -4319,12 +3935,9 @@ static const iw_handler      hostapd_handler[] =
    (iw_handler) NULL,           /* SIOCSIWPMKSA */
 };
 
-/*
- * Note that the following ioctls were defined with semantics which
- * cannot be handled by the "iwpriv" userspace application and hence
- * they are not included in the hostapd_private_args array
- *     QCSAP_IOCTL_ASSOC_STA_MACADDR
- */
+#define    IW_PRIV_TYPE_OPTIE    (IW_PRIV_TYPE_BYTE | QCSAP_MAX_OPT_IE)
+#define    IW_PRIV_TYPE_MLME \
+  (IW_PRIV_TYPE_BYTE | sizeof(struct ieee80211req_mlme))
 
 static const struct iw_priv_args hostapd_private_args[] = {
   { QCSAP_IOCTL_SETPARAM,
@@ -4372,7 +3985,9 @@ static const struct iw_priv_args hostapd_private_args[] = {
       IW_PRIV_TYPE_BYTE | sizeof(sQcSapreq_WPSPBCProbeReqIES_t) | IW_PRIV_SIZE_FIXED | 1, 0, "getProbeReqIEs" },
   { QCSAP_IOCTL_GET_CHANNEL, 0,
       IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 1, "getchannel" },
-  { QCSAP_IOCTL_DISASSOC_STA,
+  { QCSAP_IOCTL_ASSOC_STA_MACADDR, 0,
+      IW_PRIV_TYPE_BYTE | /*((WLAN_MAX_STA_COUNT*6)+100)*/1 , "get_assoc_stamac" },
+    { QCSAP_IOCTL_DISASSOC_STA,
         IW_PRIV_TYPE_BYTE | IW_PRIV_SIZE_FIXED | 6 , 0, "disassoc_sta" },
   { QCSAP_IOCTL_AP_STATS,
         IW_PRIV_TYPE_BYTE | QCSAP_MAX_WSC_IE, 0, "ap_stats" },
@@ -4530,29 +4145,11 @@ VOS_STATUS hdd_init_ap_mode( hdd_adapter_t *pAdapter )
     struct net_device *dev = pAdapter->dev;
     hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     VOS_STATUS status;
-#ifdef FEATURE_WLAN_CH_AVOID
-    v_U16_t unsafeChannelList[NUM_20MHZ_RF_CHANNELS];
-    v_U16_t unsafeChannelCount;
-#endif /* FEATURE_WLAN_CH_AVOID */
-
     ENTER();
        // Allocate the Wireless Extensions state structure   
     phostapdBuf = WLAN_HDD_GET_HOSTAP_STATE_PTR( pAdapter );
  
     sme_SetCurrDeviceMode(pHddCtx->hHal, pAdapter->device_mode);
-
-#ifdef FEATURE_WLAN_CH_AVOID
-    /* Get unsafe cahnnel list from cached location */
-    wcnss_get_wlan_unsafe_channel(unsafeChannelList,
-                                  sizeof(unsafeChannelList),
-                                  &unsafeChannelCount);
-    VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO,
-              "%s : Unsafe Channel count %d",
-              __func__, unsafeChannelCount);
-    hdd_hostapd_update_unsafe_channel_list(pHddCtx,
-                                  unsafeChannelList,
-                                  unsafeChannelCount);
-#endif /* FEATURE_WLAN_CH_AVOID */
 
     // Zero the memory.  This zeros the profile structure.
     memset(phostapdBuf, 0,sizeof(hdd_hostapd_state_t));
@@ -4653,7 +4250,6 @@ hdd_adapter_t* hdd_wlan_create_ap_dev( hdd_context_t *pHddCtx, tSirMacAddr macAd
         init_completion(&pHostapdAdapter->tx_action_cnf_event);
         init_completion(&pHostapdAdapter->cancel_rem_on_chan_var);
         init_completion(&pHostapdAdapter->rem_on_chan_ready_event);
-        init_completion(&pHostapdAdapter->ula_complete);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38))
         init_completion(&pHostapdAdapter->offchannel_tx_event);
 #endif
