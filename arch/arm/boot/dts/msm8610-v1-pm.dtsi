@@ -145,16 +145,6 @@
 			compatible = "qcom,system-modes";
 
 			qcom,system-modes@0 {
-				qcom,l2 = "l2_cache_gdhs";
-				qcom,latency-us = <10700>;
-				qcom,ss-power = <372>;
-				qcom,energy-overhead = <738750>;
-				qcom,time-overhead = <1410>;
-				qcom,min-cpu-mode= "pc";
-				qcom,sync-cpus;
-			};
-
-			qcom,system-modes@1 {
 				qcom,l2 = "l2_cache_pc_no_rpm";
 				qcom,latency-us = <1000>;
 				qcom,ss-power = <315>;
@@ -164,7 +154,7 @@
 				qcom,sync-cpus;
 			};
 
-			qcom,system-modes@2 {
+			qcom,system-modes@1 {
 				qcom,l2 = "l2_cache_pc";
 				qcom,latency-us = <12700>;
 				qcom,ss-power = <315>;
@@ -172,6 +162,7 @@
 				qcom,time-overhead = <2400>;
 				qcom,min-cpu-mode= "pc";
 				qcom,sync-cpus;
+				qcom,send-rpm-sleep-set;
 			};
 		};
 	};
@@ -227,6 +218,7 @@
 			<0xff 175>, /* o_wcss_apss_smd_low */
 			<0xff 176>, /* o_wcss_apss_smsm_irq */
 			<0xff 177>, /* o_wcss_apss_wlan_data_xfer_done */
+
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
 			<0xff 179>, /* o_wcss_apss_asic_intr */
 			<0xff 181>, /* o_wcss_apss_wdog_bite_and_reset_rdy */
@@ -236,6 +228,7 @@
 			<0xff 191>, /* lpass_irq_out_apcs(3) */
 			<0xff 192>, /* lpass_irq_out_apcs(4) */
 			<0xff 194>, /* lpass_irq_out_apcs(6) */
+			<0xff 198>, /* QDSS - u_qdss */
 			<0xff 200>, /* rpm_ipc(4) */
 			<0xff 201>, /* rpm_ipc(5) */
 			<0xff 202>, /* rpm_ipc(6) */
@@ -293,7 +286,8 @@
 			<37  98>,
 			<38  99>,
 			<39  100>,
-			<40  101>;
+			<40  101>,
+			<41  8>;
 	};
 
 	qcom,pm-8x60@fe805664 {

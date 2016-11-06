@@ -302,8 +302,10 @@ static void tick_nohz_stop_sched_tick(struct tick_sched *ts)
 			tick_do_timer_cpu = TICK_DO_TIMER_NONE;
 	}
 
-	if (unlikely(ts->nohz_mode == NOHZ_MODE_INACTIVE))
+	if (unlikely(ts->nohz_mode == NOHZ_MODE_INACTIVE)) {
+		ts->sleep_length = (ktime_t) { .tv64 = NSEC_PER_SEC/HZ };
 		return;
+	}
 
 	if (need_resched())
 		return;
@@ -448,6 +450,7 @@ static void tick_nohz_stop_sched_tick(struct tick_sched *ts)
 out:
 	ts->next_jiffies = next_jiffies;
 	ts->last_jiffies = last_jiffies;
+	ts->sleep_length = ktime_sub(dev->next_event, now);
 }
 
 /**

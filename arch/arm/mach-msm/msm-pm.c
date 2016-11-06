@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/sched.h>
 #include <linux/debugfs.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -460,8 +461,8 @@ static inline void msm_pc_inc_debug_count(uint32_t cpu,
 	if (!msm_pc_debug_counters)
 		return;
 
-	cnt = readl_relaxed(msm_pc_debug_counters + cpu * 4 + offset * 4);
-	writel_relaxed(++cnt, msm_pc_debug_counters + cpu * 4 + offset * 4);
+	cnt = readl_relaxed(msm_pc_debug_counters + cpu * 4 * MSM_PC_NUM_COUNTERS + offset * 4);
+	writel_relaxed(++cnt, msm_pc_debug_counters + cpu * 4 * MSM_PC_NUM_COUNTERS + offset * 4);
 	mb();
 }
 
@@ -806,7 +807,7 @@ int msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 
 int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 {
-	int timeout = 10;
+	int timeout = 0;
 
 	if (!msm_pm_slp_sts)
 		return 0;

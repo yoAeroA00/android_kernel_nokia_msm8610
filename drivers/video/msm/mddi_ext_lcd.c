@@ -53,9 +53,9 @@ static struct msm_fb_panel_data mddi_ext_lcd_panel_data = {
 	.panel_info.wait_cycle = 0,
 	.panel_info.bpp = 18,
 	.panel_info.fb_num = 2,
-	.panel_info.clk_rate = 122880000,
-	.panel_info.clk_min  = 120000000,
-	.panel_info.clk_max  = 125000000,
+	.panel_info.clk_rate = 167880000,
+	.panel_info.clk_min  = 122880000,
+	.panel_info.clk_max  = 181000000,
 	.on = mddi_ext_lcd_on,
 	.off = mddi_ext_lcd_off,
 };

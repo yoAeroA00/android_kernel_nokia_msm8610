@@ -40,6 +40,12 @@
 #define POLL_INTERVAL_US		1
 #define APCS_RCG_UPDATE_TIMEOUT_US	20
 
+#ifdef CONFIG_CPU_LOWCLOCK
+#define FREQ_TABLE_SIZE	35
+#else
+#define FREQ_TABLE_SIZE	30
+#endif
+
 static struct acpuclk_drv_data *priv;
 static uint32_t bus_perf_client;
 
@@ -332,7 +338,7 @@ static unsigned long acpuclk_cortex_get_rate(int cpu)
 }
 
 #ifdef CONFIG_CPU_FREQ_MSM
-static struct cpufreq_frequency_table freq_table[30];
+static struct cpufreq_frequency_table freq_table[FREQ_TABLE_SIZE];
 
 static void __init cpufreq_table_init(void)
 {
@@ -380,6 +386,7 @@ void __init get_speed_bin(void __iomem *base, struct bin_info *bin)
 		bin->speed = (pte_efuse >> 27) & 0x7;
 
 	bin->speed_valid = !!(pte_efuse & BIT(3));
+	pr_info("get_speed_bin: pte_efuse[%X]\n", pte_efuse);
 }
 
 static struct clkctl_acpu_speed *__init select_freq_plan(void)

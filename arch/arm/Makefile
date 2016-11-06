@@ -17,7 +17,7 @@ endif
 
 OBJCOPYFLAGS	:=-O binary -R .comment -S
 GZFLAGS		:=-9
-#KBUILD_CFLAGS	+=-pipe
+KBUILD_CFLAGS	+=-pipe
 # Explicitly specifiy 32-bit ARM ISA since toolchain default can be -mthumb:
 KBUILD_CFLAGS	+=$(call cc-option,-marm,)
 
@@ -41,6 +41,10 @@ ifeq ($(CONFIG_CC_STACKPROTECTOR),y)
 KBUILD_CFLAGS	+=-fstack-protector
 endif
 
+#  ARM gcc developers unfortunately broke -fconserve-stack. It misaligns
+# variables on the stack
+KBUILD_CFLAGS += $(call cc-option,-fno-conserve-stack)
+
 ifeq ($(CONFIG_CPU_BIG_ENDIAN),y)
 KBUILD_CPPFLAGS	+= -mbig-endian
 AS		+= -EB
@@ -57,7 +61,7 @@ comma = ,
 # Note that GCC does not numerically define an architecture version
 # macro, but instead defines a whole series of macros which makes
 # testing for a specific architecture or later rather impossible.
-arch-$(CONFIG_CPU_32v7)		:=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-march=armv7-a,-march=armv5t -Wa$(comma)-march=armv7-a)
+arch-$(CONFIG_CPU_32v7)		:=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-march=armv7-a -mfpu=neon-vfpv4 -mtune=cortex-a7 -ffast-math,-march=armv5t -Wa$(comma)-march=armv7-a)
 arch-$(CONFIG_CPU_32v6)		:=-D__LINUX_ARM_ARCH__=6 $(call cc-option,-march=armv6,-march=armv5t -Wa$(comma)-march=armv6)
 # Only override the compiler option if ARMv6. The ARMv6K extensions are
 # always available in ARMv7
@@ -69,17 +73,17 @@ arch-$(CONFIG_CPU_32v4T)	:=-D__LINUX_ARM_ARCH__=4 -march=armv4t
 arch-$(CONFIG_CPU_32v4)		:=-D__LINUX_ARM_ARCH__=4 -march=armv4
 arch-$(CONFIG_CPU_32v3)		:=-D__LINUX_ARM_ARCH__=3 -march=armv3
 
-# Since 'cortex-a15' is a superset of the 'armv7-a' arch spec, we need to
+# Since 'cortex-a7' is a superset of the 'armv7-a' arch spec, we need to
 # explicitly redefine the arch options to not include '-march=armv7-a' when
 # generating code for Krait, which is compatible with the instruction set of the
-# Cortex-A15, because GCC will warn us about ambiguous ISA restrictions caused
+# Cortex-A7, because GCC will warn us about ambiguous ISA restrictions caused
 # by seemingly conflicting -march and -mcpu options.
-# If $(CC) does not support the -mcpu=cortex-a15 option, fall back on passing
+# If $(CC) does not support the -mcpu=cortex-a7 option, fall back on passing
 # -march=armv7-a to specify the ISA restriction, though this is suboptimal. To
 # keep things simpler, we don't bother with a fallback option if the compiler
 # doesn't even support -march=armv7-a, since in that situation we would have
 # bigger problems.
-arch-$(CONFIG_ARCH_MSM_KRAIT)	:=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-mcpu=cortex-a15,-march=armv7-a)
+arch-$(CONFIG_ARCH_MSM_KRAIT)	:=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-mcpu=cortex-a7,-march=armv7-a)
 arch-$(CONFIG_ARCH_MSM8226)     :=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-mcpu=cortex-a7,-march=armv7-a)
 arch-$(CONFIG_ARCH_MSM8610)     :=-D__LINUX_ARM_ARCH__=7 $(call cc-option,-mcpu=cortex-a7,-march=armv7-a)
 
@@ -267,12 +271,15 @@ core-$(CONFIG_VFP)		+= arch/arm/vfp/
 # If we have a machine-specific directory, then include it in the build.
 core-y				+= arch/arm/kernel/ arch/arm/mm/ arch/arm/common/
 core-y				+= arch/arm/net/
+core-y				+= arch/arm/crypto/
 core-y				+= $(machdirs) $(platdirs)
 
 drivers-$(CONFIG_OPROFILE)      += arch/arm/oprofile/
 core-y				+= arch/arm/perfmon/
 
 libs-y				:= arch/arm/lib/ $(libs-y)
+
+core-$(CONFIG_INTELLI_PLUG)	+= arch/arm/hotplug/
 
 # Default target when executing plain make
 ifeq ($(CONFIG_XIP_KERNEL),y)

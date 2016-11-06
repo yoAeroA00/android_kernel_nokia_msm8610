@@ -495,4 +495,10 @@ config QPNP_BMS
 	  Say Y here to enable support for QPNP chip bms device.
 	  It registers a fuelgauge bms power supply to report
 	  State of Charge.
+
+config QPNP_CHARGER_CONTROL
+	bool "Enable Charger Current Control driver"
+	depends on QPNP_CHARGER
+	help
+	  Say Y here to enable charger current control driver.
 endif # POWER_SUPPLY

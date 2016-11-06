@@ -1352,6 +1352,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8226 devices.
+
+	config DEBUG_MSM8610_UART
+		bool "Kernel low-level debugging messages via MSM 8610 UART"
+		depends on ARCH_MSM8610
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM 8610 devices.
 endchoice
 
 choice
@@ -1904,6 +1912,14 @@ config MSM_DEVFREQ_CPUBW
 	  agnostic interface to so that some of the devfreq governors can be
 	  shared across SoCs.
 
+config FORCE_FAST_CHARGE
+	bool "Force fast charging (AC/USB) by yoAeroA00"
+	default y
+	help
+	  A simple sysfs interface to force adapters that
+	  are detected as USB to charge as AC (1A/h) or to set
+	  custom charging currents for AC and USB.
+
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
@@ -2337,6 +2353,7 @@ config MSM_BUSPM_DEV
 config MSM_TZ_LOG
 	tristate "MSM Trust Zone (TZ) Log Driver"
 	depends on DEBUG_FS
+	default y
 	help
 	  This option enables a driver with a debugfs interface for messages
 	  produced by the Secure code (Trust zone). These messages provide
@@ -2377,6 +2394,8 @@ config MSM_RPM_RBCPR_STATS_LOG
 config MSM_RPM_RBCPR_STATS_V2_LOG
         tristate "MSM Resource Power Manager RPBCPR Stat Driver"
         depends on DEBUG_FS
+        depends on MSM_RPM || MSM_RPM_SMD
+        default y
           help
           This option enables v2 of the rpmrbcpr_stats driver which reads RPM
           memory for statistics pertaining to RPM's RBCPR(Rapid Bridge Core
@@ -3064,9 +3083,66 @@ config ATTS_TUNING_TOOL
 	  Add support for Audio Tuning and Tracing Subsystem (ATTS) device.
 
 config HAS_MACH_MEMUTILS
-	default n
-	bool "Motorola MSM memcpy enhancements"
+	bool "Motorola MSM memcpy Enhancements"
+	default y
 	help
 	Faster memcpy performance for Krait
+
+config BRICKED_HOTPLUG
+	bool "Enable kernel based mpdecision"
+	depends on MSM_RUN_QUEUE_STATS
+	default y
+	help
+	  This enables kernel based multi core control.
+	  (up/down hotplug based on load)
+
+config ALUCARD_HOTPLUG
+	bool "Enable alucard-hotplug cpu hotplug driver"
+	default y
+	help
+	  Generic Alucard-hotplug cpu hotplug driver for ARM SOCs.
+
+config PM_DEBUG_WAKEUP
+	depends on PM_DEBUG
+	default y
+	bool "Report wakeup source in a uevent"
+
+config CONFIG_CYPRESS_CAPSENSE_PROGRAMMING
+	bool "Flash CapSense before loading Modem"
+	default n
+	help
+	  Firmware for CapSense should be flashed/upgraded before modem
+	  starts, because modem will use it to do measurements. Flashing
+	  firmware takes about 4-5sec and if modem is active then we may
+	  have race conditions AP<->Modem. Because of that we have to finish
+	  flashing/updating before modem become active
+
+config CPU_UNDERCLOCK
+	bool "CPU Frequency UnderClock by yoAeroA00"
+	default y
+	help
+	  This sets kernel to Allow UnderClock CPU Frequency Values.
+
+config CPU_LOWCLOCK
+	bool "CPU Frequency Table Size Mod by yoAeroA00"
+	default y
+	help
+	  This sets kernel to Allow More CPU Frequency Table Size.
+
+config CPU_OVERCLOCK
+	bool "CPU Frequency OverClock by yoAeroA00"
+	default n
+	help
+	  This sets kernel to Allow OverClock CPU Frequency Values.
+
+config GPU_CLOCKMOD
+	bool "GPU Frequency Mod by yoAeroA00"
+	default y
+	help
+	  This sets kernel to Modified GPU Frequency Values.
+
+config STATE_NOTIFIER
+	bool "State Notifier"
+	default y
 
 endif

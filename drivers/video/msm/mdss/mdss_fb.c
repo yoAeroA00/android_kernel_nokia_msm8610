@@ -53,8 +53,8 @@
 
 #include "mdss_fb.h"
 
-#ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
-#define MDSS_FB_NUM 3
+#ifdef CONFIG_FB_MSM_QTR_BUFFER
+#define MDSS_FB_NUM 4
 #else
 #define MDSS_FB_NUM 2
 #endif
@@ -1805,9 +1805,14 @@ static int __mdss_fb_display_thread(void *data)
 				mfd->index);
 
 	while (1) {
-		wait_event(mfd->commit_wait_q,
+		ret = wait_event_interruptible(mfd->commit_wait_q,
 				(atomic_read(&mfd->commits_pending) ||
 				 kthread_should_stop()));
+
+		if (ret) {
+			pr_info("%s: interrupted", __func__);
+			continue;
+		}
 
 		if (kthread_should_stop())
 			break;

@@ -11,6 +11,12 @@
 #include <linux/linkage.h>
 
 	.arch	armv7-a
+
+#ifdef CONFIG_KEXEC_HARDBOOT
+    #include <asm/kexec.h>
+    #include <asm/memory.h>
+#endif
+
 /*
  * Debugging stuff
  *
@@ -136,6 +142,73 @@ start:
 1:		mov	r7, r1			@ save architecture ID
 		mov	r8, r2			@ save atags pointer
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+               /* Check hardboot page for a kexec kernel. */
+               ldr     r3, =KEXEC_HB_PAGE_ADDR
+               ldr     r0, [r3]
+               ldr     r1, =KEXEC_HB_PAGE_MAGIC
+               teq     r0, r1
+               bne     not_booting_other
+
+               /* Clear hardboot page magic to avoid boot loop. */
+               mov     r0, #1
+               str     r0, [r3]
+
+               /*
+                * Copy dtb from location up high in memory to default location.
+                * Kernel freezes if this is not done.
+                */
+               ldr     r1, [r3, #12]                   @ kexec_boot_atags
+               ldr     r2, [r3, #16]                   @ kexec_boot_atags_len
+               mov     r5, #0                                  @ iterator
+catags_cpy:
+               ldr     r0, [r1, r5]                    @ from kexec_boot_atags
+               str     r0, [r8, r5]                    @ to atags_pointer
+               add     r5, r5, #4
+               cmp     r5, r2
+               blo     catags_cpy
+
+               mov     r0, #2
+               str     r0, [r3]
+
+#ifdef KEXEC_HB_KERNEL_LOC
+               /*
+                * Copy kernel from location up high in memory to location in first 128MB.
+                * Bootloader on hammerhead erases first 128MB of ram on reboot, so it can't
+                * be in there before reboot, but decompressing in location above 128MB takes
+                * a long time. This memcpy is much quicker, for some reason.
+                */
+               ldr     r2, [r3, #4]                            @ kexec_start_address
+               ldr     r4, [r3, #20]                           @ kexec_kernel_len
+               ldr     r6, =KEXEC_HB_KERNEL_LOC    @ target
+               mov     r5, #0                                          @ iterator
+kernel_cpy:
+               ldr     r0, [r2, r5]                            @ from kexec_start_address
+               str     r0, [r6, r5]                            @ to KEXEC_HB_KERNEL_LOC
+               add     r5, r5, #4
+               cmp     r5, r4
+               blo     kernel_cpy
+#else
+               ldr     r6, [r3, #4]                            @ kexec_start_address
+#endif
+
+               /* set registers and boot kexecd' kernel */
+               mov     r0, #3
+               str     r0, [r3]
+
+               mov     r0, #0
+               ldr     r1, [r3, #8]                            @ kexec_mach_type
+               mov     r2, r8                                          @ atags pointer
+               mov     pc, r6
+
+               mov     r0, #4
+               str     r0, [r3]
+
+               .ltorg
+
+not_booting_other:
+#endif
+
 #ifndef __ARM_ARCH_2__
 		/*
 		 * Booting from Angel - need to enter SVC mode and disable
@@ -177,7 +250,19 @@ not_angel:
 		ldr	r4, =zreladdr
 #endif
 
-		bl	cache_on
+		/*
+		 * Set up a page table only if it won't overwrite ourself.
+		 * That means r4 < pc && r4 - 16k page directory > &_end.
+		 * Given that r4 > &_end is most unfrequent, we add a rough
+		 * additional 1MB of room for a possible appended DTB.
+		 */
+		mov	r0, pc
+		cmp	r0, r4
+		ldrcc	r0, LC0+32
+		addcc	r0, r0, pc
+		cmpcc	r4, r0
+		orrcc	r4, r4, #1		@ remember we skipped cache_on
+		blcs	cache_on
 
 restart:	adr	r0, LC0
 		ldmia	r0, {r1, r2, r3, r6, r10, r11, r12}
@@ -223,7 +308,7 @@ restart:	adr	r0, LC0
  *   r0  = delta
  *   r2  = BSS start
  *   r3  = BSS end
- *   r4  = final kernel address
+ *   r4  = final kernel address (possibly with LSB set)
  *   r5  = appended dtb size (still unknown)
  *   r6  = _edata
  *   r7  = architecture ID
@@ -271,6 +356,7 @@ restart:	adr	r0, LC0
 		 */
 		cmp	r0, #1
 		sub	r0, r4, #TEXT_OFFSET
+		bic	r0, r0, #1
 		add	r0, r0, #0x100
 		mov	r1, r6
 		sub	r2, sp, r6
@@ -315,14 +401,20 @@ restart:	adr	r0, LC0
 dtb_check_done:
 #endif
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+  #include <asm/kexec.h>
+  #include <asm/memory.h>
+#endif
+
 /*
  * Check to see if we will overwrite ourselves.
- *   r4  = final kernel address
+ *   r4  = final kernel address (possibly with LSB set)
  *   r9  = size of decompressed image
  *   r10 = end of this image, including  bss/stack/malloc space if non XIP
  * We basically want:
  *   r4 - 16k page directory >= r10 -> OK
  *   r4 + image length <= address of wont_overwrite -> OK
+ * Note: the possible LSB in r4 is harmless here.
  */
 		add	r10, r10, #16384
 		cmp	r4, r10
@@ -371,6 +463,8 @@ dtb_check_done:
 #endif
 
 		bl	cache_clean_flush
+		tst	r4, #1
+		bleq	cache_clean_flush
 
 		adr	r0, BSYM(restart)
 		add	r0, r0, r6
@@ -382,7 +476,7 @@ wont_overwrite:
  *   r0  = delta
  *   r2  = BSS start
  *   r3  = BSS end
- *   r4  = kernel execution address
+ *   r4  = kernel execution address (possibly with LSB set)
  *   r5  = appended dtb size (0 if not present)
  *   r7  = architecture ID
  *   r8  = atags pointer
@@ -445,6 +539,15 @@ not_relocated:	mov	r0, #0
 		cmp	r2, r3
 		blo	1b
 
+		/*
+		 * Did we skip the cache setup earlier?
+		 * That is indicated by the LSB in r4.
+		 * Do it now if so.
+		 */
+		tst	r4, #1
+		bic	r4, r4, #1
+		blne	cache_on
+
 /*
  * The C runtime environment should now be setup sufficiently.
  * Set up some pointers, and start decompressing.
@@ -475,6 +578,7 @@ LC0:		.word	LC0			@ r1
 		.word	_got_start		@ r11
 		.word	_got_end		@ ip
 		.word	.L_user_stack_end	@ sp
+		.word	_end - restart + 16384 + 1024*1024
 		.size	LC0, . - LC0
 
 #ifdef CONFIG_ARCH_RPC
@@ -615,6 +719,15 @@ __setup_mmu:	sub	r3, r4, #16384		@ Page directory size
 		mov	pc, lr
 ENDPROC(__setup_mmu)
 
+@ Enable unaligned access on v6, to allow better code generation
+@ for the decompressor C code:
+__armv6_mmu_cache_on:
+ mrc p15, 0, r0, c1, c0, 0	@ read SCTLR
+ bic r0, r0, #2 @ A (no unaligned access fault)
+ orr r0, r0, #1 << 22 @ U (v6 unaligned access model)
+ mcr p15, 0, r0, c1, c0, 0	@ write SCTLR
+ b	__armv4_mmu_cache_on
+
 __arm926ejs_mmu_cache_on:
 #ifdef CONFIG_CPU_DCACHE_WRITETHROUGH
 		mov	r0, #4			@ put dcache in WT mode
@@ -657,6 +770,9 @@ __armv7_mmu_cache_on:
 		bic	r0, r0, #1 << 28	@ clear SCTLR.TRE
 		orr	r0, r0, #0x5000		@ I-cache enable, RR cache replacement
 		orr	r0, r0, #0x003c		@ write buffer
+		bic r0, r0, #2 			@ A (no unaligned access fault)
+		orr r0, r0, #1 << 22 		@ U (v6 unaligned access model)
+						@ (needed for ARM1176)
 #ifdef CONFIG_MMU
 #ifdef CONFIG_CPU_ENDIAN_BE8
 		orr	r0, r0, #1 << 25	@ big-endian page tables
@@ -897,7 +1013,7 @@ proc_types:
 
 		.word	0x0007b000		@ ARMv6
 		.word	0x000ff000
-		W(b)	__armv4_mmu_cache_on
+		W(b)	__armv6_mmu_cache_on
 		W(b)	__armv4_mmu_cache_off
 		W(b)	__armv6_mmu_cache_flush
 

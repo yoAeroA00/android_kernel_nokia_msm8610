@@ -26,6 +26,10 @@
 #include "sd.h"
 #include "sd_ops.h"
 
+#define PARANOID_SD_INIT_RETRIES	5
+#define PARANOID_SD_INIT_DELAY		50000
+#define PARANOID_SD_INIT_INCREMENT	100000
+
 #define UHS_SDR104_MIN_DTR	(100 * 1000 * 1000)
 #define UHS_DDR50_MIN_DTR	(50 * 1000 * 1000)
 #define UHS_SDR50_MIN_DTR	(50 * 1000 * 1000)
@@ -221,7 +225,7 @@ static int mmc_decode_scr(struct mmc_card *card)
  */
 static int mmc_read_ssr(struct mmc_card *card)
 {
-	unsigned int au, es, et, eo;
+	unsigned int au, es, et, eo, spd;
 	int err, i;
 	u32 *ssr;
 
@@ -264,6 +268,14 @@ static int mmc_read_ssr(struct mmc_card *card)
 		pr_warning("%s: SD Status: Invalid Allocation Unit "
 			"size.\n", mmc_hostname(card->host));
 	}
+
+	spd = UNSTUFF_BITS(ssr, 440 - 384, 8);
+	if (spd < 4)
+		card->ssr.speed_class = spd * 2;
+	else if (spd == 4)
+		card->ssr.speed_class = 10;
+
+	card->ssr.uhs_speed_grade = UNSTUFF_BITS(ssr, 396 - 384, 4);
 out:
 	kfree(ssr);
 	return err;
@@ -459,9 +471,9 @@ static int sd_select_driver_type(struct mmc_card *card, u8 *status)
 	 * return what is possible given the options
 	 */
 	mmc_host_clk_hold(card->host);
-	drive_strength = card->host->ops->select_drive_strength(
-		card->sw_caps.uhs_max_dtr,
-		host_drv_type, card_drv_type);
+	drive_strength = card->host->ops->select_drive_strength(card->host,
+								host_drv_type,
+								card_drv_type);
 	mmc_host_clk_release(card->host);
 
 	err = mmc_sd_switch(card, 1, 2, drive_strength, status);
@@ -689,6 +701,58 @@ out:
 	return err;
 }
 
+static int mmc_sd_throttle_back(struct mmc_host *host)
+{
+	struct sd_switch_caps *sw_caps;
+	char *speed = NULL;
+	int err = 0;
+
+	mmc_claim_host(host);
+
+	if (!host->card) {
+		err = -ENODEV;
+		goto out;
+	}
+
+	if (host->ops->tune_drive_strength &&
+	    host->ops->tune_drive_strength(host) == 0)
+		goto out;
+
+	sw_caps = &host->card->sw_caps;
+	if (mmc_sd_card_uhs(host->card)) {
+		if (sw_caps->sd3_bus_mode & SD_MODE_UHS_SDR104) {
+			sw_caps->sd3_bus_mode &= ~SD_MODE_UHS_SDR104;
+			speed = "DDR50";
+		} else if (sw_caps->sd3_bus_mode & SD_MODE_UHS_DDR50) {
+			/* Skip SDR50 if DDR50 fails. */
+			sw_caps->sd3_bus_mode &= ~(SD_MODE_UHS_DDR50 |
+						   SD_MODE_UHS_SDR50);
+			speed = "SDR25";
+		} else if (sw_caps->sd3_bus_mode & SD_MODE_UHS_SDR25) {
+			sw_caps->sd3_bus_mode &= ~SD_MODE_UHS_SDR25;
+			speed = "SDR12";
+		}
+	} else if (sw_caps->hs_max_dtr > 0) {
+		/* Disable high speed for legacy cards */
+		sw_caps->hs_max_dtr = 0;
+		speed = "legacy";
+	}
+
+	if (speed)
+		pr_warning("%s: throttle back to %s\n",
+				mmc_hostname(host), speed);
+	else {
+		pr_err("%s: unable to throttle back further\n",
+				mmc_hostname(host));
+		err = -EINVAL;
+	}
+
+out:
+	mmc_release_host(host);
+
+	return err;
+}
+
 /*
  * UHS-I specific initialization procedure
  */
@@ -769,6 +833,8 @@ MMC_DEV_ATTR(manfid, "0x%06x\n", card->cid.manfid);
 MMC_DEV_ATTR(name, "%s\n", card->cid.prod_name);
 MMC_DEV_ATTR(oemid, "0x%04x\n", card->cid.oemid);
 MMC_DEV_ATTR(serial, "0x%08x\n", card->cid.serial);
+MMC_DEV_ATTR(speed_class, "%d\n", card->ssr.speed_class);
+MMC_DEV_ATTR(uhs_speed_grade, "%d\n", card->ssr.uhs_speed_grade);
 
 
 static struct attribute *sd_std_attrs[] = {
@@ -784,6 +850,8 @@ static struct attribute *sd_std_attrs[] = {
 	&dev_attr_name.attr,
 	&dev_attr_oemid.attr,
 	&dev_attr_serial.attr,
+	&dev_attr_speed_class.attr,
+	&dev_attr_uhs_speed_grade.attr,
 	NULL,
 };
 
@@ -813,6 +881,7 @@ int mmc_sd_get_cid(struct mmc_host *host, u32 ocr, u32 *cid, u32 *rocr)
 	 * state.  We wait 1ms to give cards time to
 	 * respond.
 	 */
+try_again:
 	mmc_go_idle(host);
 
 	/*
@@ -838,7 +907,6 @@ int mmc_sd_get_cid(struct mmc_host *host, u32 ocr, u32 *cid, u32 *rocr)
 	    MMC_CAP_SET_XPC_180))
 		ocr |= SD_OCR_XPC;
 
-try_again:
 	err = mmc_send_app_op_cond(host, ocr, rocr);
 	if (err)
 		return err;
@@ -851,6 +919,7 @@ try_again:
 	   ((*rocr & 0x41000000) == 0x41000000)) {
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180, true);
 		if (err) {
+			mmc_power_cycle(host);
 			ocr &= ~SD_OCR_S18R;
 			goto try_again;
 		}
@@ -920,14 +989,12 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 			err = mmc_read_switch(card);
 			if (!err) {
 				if (retries > 1) {
-					printk(KERN_WARNING
-					       "%s: recovered\n", 
+					pr_warn("%s: recovered\n",
 					       mmc_hostname(host));
 				}
 				break;
 			} else {
-				printk(KERN_WARNING
-				       "%s: read switch failed (attempt %d)\n",
+				pr_warn("%s: read switch failed (attempt %d)\n",
 				       mmc_hostname(host), retries);
 			}
 		}
@@ -1044,6 +1111,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
 			return err;
+		host->card = card;
 	}
 
 	if (!oldcard) {
@@ -1113,12 +1181,13 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
-	host->card = card;
 	return 0;
 
 free_card:
-	if (!oldcard)
+	if (!oldcard) {
+		host->card = NULL;
 		mmc_remove_card(card);
+	}
 
 	return err;
 }
@@ -1154,7 +1223,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 {
 	int err = 0;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-        int retries = 5;
+	int retries = PARANOID_SD_INIT_RETRIES;
 #endif
 
 	BUG_ON(!host);
@@ -1177,13 +1246,13 @@ static void mmc_sd_detect(struct mmc_host *host)
 		break;
 	}
 	if (!retries) {
-		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
-		       __func__, mmc_hostname(host), err);
+		pr_err("%s: failed to re-detect SD card after %d attempts (%d)\n",
+		       mmc_hostname(host), PARANOID_SD_INIT_RETRIES, err);
 		err = _mmc_detect_card_removed(host);
 	}
-#else
-	err = _mmc_detect_card_removed(host);
 #endif
+	err = _mmc_detect_card_removed(host);
+
 	mmc_release_host(host);
 
 	/*
@@ -1236,7 +1305,8 @@ static int mmc_sd_resume(struct mmc_host *host)
 {
 	int err;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-	int retries;
+	int retries = PARANOID_SD_INIT_RETRIES;
+	unsigned long delay = PARANOID_SD_INIT_DELAY, settle = 0;
 #endif
 
 	BUG_ON(!host);
@@ -1244,18 +1314,24 @@ static int mmc_sd_resume(struct mmc_host *host)
 
 	mmc_claim_host(host);
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-	retries = 5;
 	while (retries) {
 		err = mmc_sd_init_card(host, host->ocr, host->card);
 
 		if (err) {
-			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
-			       mmc_hostname(host), err, retries);
+			pr_err("%s: failed to reinitialize SD card (%d) after %lums\n",
+				mmc_hostname(host), err, delay / 1000);
+			if (err == -EILSEQ && mmc_sd_throttle_back(host) == 0)
+				continue;
 			retries--;
 			mmc_power_off(host);
-			usleep_range(5000, 5500);
+			usleep_range(delay, delay + 500);
 			mmc_power_up(host);
 			mmc_select_voltage(host, host->ocr);
+			if (settle)
+				usleep_range(settle, settle + 500);
+			/* Increase settle times on each attempt */
+			delay += PARANOID_SD_INIT_INCREMENT;
+			settle += PARANOID_SD_INIT_INCREMENT;
 			continue;
 		}
 		break;
@@ -1301,6 +1377,7 @@ static const struct mmc_bus_ops mmc_sd_ops = {
 	.power_restore = mmc_sd_power_restore,
 	.alive = mmc_sd_alive,
 	.change_bus_speed = mmc_sd_change_bus_speed,
+	.throttle_back = mmc_sd_throttle_back,
 };
 
 static const struct mmc_bus_ops mmc_sd_ops_unsafe = {
@@ -1311,6 +1388,7 @@ static const struct mmc_bus_ops mmc_sd_ops_unsafe = {
 	.power_restore = mmc_sd_power_restore,
 	.alive = mmc_sd_alive,
 	.change_bus_speed = mmc_sd_change_bus_speed,
+	.throttle_back = mmc_sd_throttle_back,
 };
 
 static void mmc_sd_attach_bus_ops(struct mmc_host *host)
@@ -1332,7 +1410,8 @@ int mmc_attach_sd(struct mmc_host *host)
 	int err;
 	u32 ocr;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-	int retries;
+	int retries = PARANOID_SD_INIT_RETRIES;
+	unsigned long delay = PARANOID_SD_INIT_DELAY, settle = 0;
 #endif
 
 	BUG_ON(!host);
@@ -1397,23 +1476,31 @@ int mmc_attach_sd(struct mmc_host *host)
 	 * Detect and init the card.
 	 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-	retries = 5;
 	while (retries) {
 		err = mmc_sd_init_card(host, host->ocr, NULL);
 		if (err) {
+			if (err == -EILSEQ && mmc_sd_throttle_back(host) == 0)
+				continue;
 			retries--;
 			mmc_power_off(host);
-			usleep_range(5000, 5500);
+			usleep_range(delay, delay + 500);
 			mmc_power_up(host);
 			mmc_select_voltage(host, host->ocr);
+			if (settle)
+				usleep_range(settle, settle + 500);
+			/* Increase settle times on each attempt */
+			delay += PARANOID_SD_INIT_INCREMENT;
+			settle += PARANOID_SD_INIT_INCREMENT;
 			continue;
 		}
 		break;
 	}
 
 	if (!retries) {
-		printk(KERN_ERR "%s: mmc_sd_init_card() failure (err = %d)\n",
-		       mmc_hostname(host), err);
+		pr_err("%s: failed to initialize SD card after %d attempts (%d)\n",
+		       mmc_hostname(host), PARANOID_SD_INIT_RETRIES, err);
+		/* A card was detected, but we couldn't initialize it. */
+		host->card_bad = 1;
 		goto err;
 	}
 #else
@@ -1439,10 +1526,11 @@ remove_card:
 	mmc_claim_host(host);
 err:
 	mmc_detach_bus(host);
-
-	pr_err("%s: error %d whilst initialising SD card\n",
-		mmc_hostname(host), err);
-
+#ifndef CONFIG_MMC_PARANOID_SD_INIT
+	if (err)
+		pr_err("%s: error %d whilst initialising SD card\n",
+		       mmc_hostname(host), err);
+#endif
 	return err;
 }
 

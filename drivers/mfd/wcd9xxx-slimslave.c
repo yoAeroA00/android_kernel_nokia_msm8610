@@ -211,7 +211,7 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
 		 __func__, ch_cnt, rate, WATER_MARK_VAL);
 	/* slim_define_ch api */
 	prop.prot = SLIM_AUTO_ISO;
-	prop.baser = SLIM_RATE_4000HZ;
+	prop.baser = SLIM_RATE_44100HZ;
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = (rate/4000);
@@ -312,7 +312,7 @@ int wcd9xxx_cfg_slim_sch_tx(struct wcd9xxx *wcd9xxx,
 
 	/* slim_define_ch api */
 	prop.prot = SLIM_AUTO_ISO;
-	prop.baser = SLIM_RATE_4000HZ;
+	prop.baser = SLIM_RATE_44100HZ;
 	prop.dataf = SLIM_CH_DATAF_NOT_DEFINED;
 	prop.auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
 	prop.ratem = (rate/4000);

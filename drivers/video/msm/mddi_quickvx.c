@@ -615,9 +615,9 @@ static int __init mddi_quickvx_lcd_init(void)
 		pinfo->bpp = 24;
 		pinfo->fb_num = 2;
 
-		pinfo->clk_rate = 192000000;
+		pinfo->clk_rate = 235000000;
 		pinfo->clk_min = 192000000;
-		pinfo->clk_max = 200000000;
+		pinfo->clk_max = 256000000;
 		pinfo->lcd.rev = 1;
 		pinfo->lcd.vsync_enable = TRUE;
 		pinfo->lcd.refx100 = (mddi_quickvx_rows_per_second \

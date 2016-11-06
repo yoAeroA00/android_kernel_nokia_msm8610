@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,6 +34,7 @@ struct cpu_sync {
 	int cpu;
 	spinlock_t lock;
 	bool pending;
+	atomic_t being_woken;
 	int src_cpu;
 	unsigned int boost_min;
 	unsigned int input_boost_min;
@@ -44,6 +45,9 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
+static unsigned int cpu_boost = 0;
+module_param(cpu_boost, uint, 0644);
+
 static unsigned int boost_ms;
 module_param(boost_ms, uint, 0644);
 
@@ -53,7 +57,7 @@ module_param(sync_threshold, uint, 0644);
 static unsigned int input_boost_freq;
 module_param(input_boost_freq, uint, 0644);
 
-static unsigned int input_boost_ms = 40;
+static unsigned int input_boost_ms = 60;
 module_param(input_boost_ms, uint, 0644);
 
 static u64 last_input_time;
@@ -205,7 +209,16 @@ static int boost_migration_notify(struct notifier_block *nb,
 	s->pending = true;
 	s->src_cpu = (int) arg;
 	spin_unlock_irqrestore(&s->lock, flags);
-	wake_up(&s->sync_wq);
+	/*
+	 * Avoid issuing recursive wakeup call, as sync thread itself could be
+	 * seen as migrating triggering this notification. Note that sync thread
+	 * of a cpu could be running for a short while with its affinity broken
+	 * because of CPU hotplug.
+	 */
+	if (!atomic_cmpxchg(&s->being_woken, 0, 1)) {
+		wake_up(&s->sync_wq);
+		atomic_set(&s->being_woken, 0);
+	}
 
 	return NOTIFY_OK;
 }
@@ -244,6 +257,9 @@ static void cpuboost_input_event(struct input_handle *handle,
 		unsigned int type, unsigned int code, int value)
 {
 	u64 now;
+
+	if (!cpu_boost)
+	return;
 
 	if (!input_boost_freq)
 		return;
@@ -345,6 +361,7 @@ static int cpu_boost_init(void)
 		s = &per_cpu(sync_info, cpu);
 		s->cpu = cpu;
 		init_waitqueue_head(&s->sync_wq);
+		atomic_set(&s->being_woken, 0);
 		spin_lock_init(&s->lock);
 		INIT_DELAYED_WORK(&s->boost_rem, do_boost_rem);
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);

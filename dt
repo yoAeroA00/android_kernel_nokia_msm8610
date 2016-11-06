@@ -1,0 +1,2 @@
+#./dtbToolCM -2 -d "htc,project-id = <" -o ~/Nokia-X2/android_kernel_nokia_msm8610/arch/arm/boot/dtb -s 2048 -p ~/Nokia-X2/android_kernel_nokia_msm8610/scripts/dtc/ ~/Nokia-X2/android_kernel_nokia_msm8610/arch/arm/boot/
+./dtbToolCM -2 -o ~/Nokia-X2/android_kernel_nokia_msm8610/arch/arm/boot/dtb -s 2048 -p ~/Nokia-X2/android_kernel_nokia_msm8610/scripts/dtc/ ~/Nokia-X2/android_kernel_nokia_msm8610/arch/arm/boot/

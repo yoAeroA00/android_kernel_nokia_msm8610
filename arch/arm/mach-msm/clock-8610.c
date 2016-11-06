@@ -556,10 +556,12 @@ static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2,
 				vdd_sr2_levels, NULL);
 
 static struct pll_freq_tbl apcs_pll_freq[] = {
-	F_APCS_PLL( 768000000, 40, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 787200000, 41, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
+#ifdef CONFIG_CPU_OVERCLOCK
+	F_APCS_PLL(1305600000, 68, 0x0, 0x1, 0x0, 0x0, 0x0),
+#endif
 	PLL_F_END
 };
 
@@ -876,6 +878,7 @@ static struct rcg_clk blsp1_uart6_apps_clk_src = {
 static struct clk_freq_tbl ftbl_gcc_ce1_clk[] = {
 	F(50000000, gpll0, 12, 0, 0),
 	F(100000000, gpll0, 6, 0, 0),
+	F(150000000, gpll0, 4, 0, 0),
 	F_END,
 };
 
@@ -888,7 +891,7 @@ static struct rcg_clk ce1_clk_src = {
 	.c = {
 		.dbg_name = "ce1_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 100000000),
+		VDD_DIG_FMAX_MAP2(LOW, 50000000, NOMINAL, 150000000),
 		CLK_INIT(ce1_clk_src.c),
 	},
 };
@@ -1664,8 +1667,13 @@ static struct clk_freq_tbl ftbl_oxili_gfx3d_clk[] = {
 	F_MM(100000000,  gpll0,  6, 0, 0),
 	F_MM(150000000,  gpll0,  4, 0, 0),
 	F_MM(200000000,  gpll0,  3, 0, 0),
+#ifdef CONFIG_GPU_CLOCKMOD
+	F_MM(320000000,  gpll0,  2, 0, 0),
+	F_MM(465000000, mmpll1,  3, 0, 0),
+#else
 	F_MM(300000000,  gpll0,  2, 0, 0),
 	F_MM(400000000, mmpll1,  3, 0, 0),
+#endif
 	F_END,
 };
 
@@ -1678,8 +1686,13 @@ static struct rcg_clk gfx3d_clk_src = {
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
+#ifdef CONFIG_GPU_CLOCKMOD
+		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 320000000, HIGH,
+					465000000),
+#else
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 300000000, HIGH,
 					400000000),
+#endif
 		CLK_INIT(gfx3d_clk_src.c),
 	},
 };
@@ -2350,17 +2363,6 @@ static struct branch_clk mmss_s0_axi_clk = {
 	},
 };
 
-static struct branch_clk mmss_mmssnoc_bto_ahb_clk = {
-	.cbcr_reg = MMSS_MMSSNOC_BTO_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[MMSS_BASE],
-	.c = {
-		.dbg_name = "mmss_mmssnoc_bto_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmssnoc_bto_ahb_clk.c),
-	},
-};
-
 static struct branch_clk oxili_ahb_clk = {
 	.cbcr_reg = OXILI_AHB_CBCR,
 	.bcr_reg = OXILI_AHB_BCR,
@@ -2994,7 +2996,6 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("core_clk",                mdp_vsync_clk.c, ""),
 	CLK_LOOKUP("core_clk",            mmss_misc_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk",              mmss_s0_axi_clk.c, ""),
-	CLK_LOOKUP("core_clk",     mmss_mmssnoc_bto_ahb_clk.c, ""),
 	CLK_LOOKUP("core_clk",         mmss_mmssnoc_axi_clk.c, ""),
 	CLK_LOOKUP("core_clk",                      vfe_clk.c, ""),
 	CLK_LOOKUP("core_clk",                  vfe_ahb_clk.c, ""),
@@ -3037,9 +3038,9 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "6-0078"),
 	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "6-0020"),
 	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-0042"),
-    CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-0060"),
-    CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "6-0016"),
-    CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-006a"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-0060"),
+	CLK_LOOKUP("cam_src_clk", mclk1_clk_src.c, "6-0016"),
+	CLK_LOOKUP("cam_src_clk", mclk0_clk_src.c, "6-006a"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-006f"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-0034"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-007d"),
@@ -3049,7 +3050,7 @@ static struct clk_lookup msm_clocks_8610[] = {
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-0042"),
 	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-0060"),
 	CLK_LOOKUP("cam_clk", mclk1_clk.c, "6-0016"),
-    CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-006a"),
+	CLK_LOOKUP("cam_clk", mclk0_clk.c, "6-006a"),
 
 
 

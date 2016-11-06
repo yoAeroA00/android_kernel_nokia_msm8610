@@ -33,6 +33,13 @@ config GENERIC_IO
 	boolean
 	default n
 
+config SPINLOCK_TIMEOUT_EXT
+	bool "debug spinlock with extended timeout"
+	default n
+	help
+	  This debug option is provided for the cases where spinlock contention
+	  is severe.
+
 config CRC_CCITT
 	tristate "CRC-CCITT functions"
 	help
@@ -162,6 +169,13 @@ config AUDIT_GENERIC
 	depends on AUDIT && !AUDIT_ARCH
 	default y
 
+config RANDOM32_SELFTEST
+	bool "PRNG perform self test on init"
+	default n
+	help
+	  This option enables the 32 bit PRNG library functions to perform a
+	  self test on initialization.
+
 #
 # compression support is select'ed if needed
 #
@@ -175,6 +189,15 @@ config LZO_COMPRESS
 	tristate
 
 config LZO_DECOMPRESS
+	tristate
+
+config LZ4_COMPRESS
+	tristate
+
+config LZ4HC_COMPRESS
+	tristate
+
+config LZ4_DECOMPRESS
 	tristate
 
 source "lib/xz/Kconfig"
@@ -199,6 +222,10 @@ config DECOMPRESS_XZ
 
 config DECOMPRESS_LZO
 	select LZO_DECOMPRESS
+	tristate
+
+config DECOMPRESS_LZ4
+	select LZ4_DECOMPRESS
 	tristate
 
 #

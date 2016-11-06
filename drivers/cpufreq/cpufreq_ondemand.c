@@ -33,15 +33,15 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
-#define DEF_FREQUENCY_UP_THRESHOLD		(80)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(26)
+#define DEF_FREQUENCY_UP_THRESHOLD		(63)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
-#define MIN_FREQUENCY_UP_THRESHOLD		(11)
-#define MAX_FREQUENCY_UP_THRESHOLD		(100)
+#define MIN_FREQUENCY_UP_THRESHOLD		(10)
+#define MAX_FREQUENCY_UP_THRESHOLD		(98)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
 
 /*
@@ -768,10 +768,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	/*
 	 * Every sampling_rate, we check, if current idle time is less
-	 * than 20% (default), then we try to increase frequency
+	 * than 37% (default), then we try to increase frequency
 	 * Every sampling_rate, we look for a the lowest
 	 * frequency which can sustain the load while keeping idle time over
-	 * 30%. If such a frequency exist, we try to decrease to this frequency.
+	 * 63%. If such a frequency exist, we try to decrease to this frequency.
 	 *
 	 * Any frequency increase takes it to the maximum frequency.
 	 * Frequency reduction happens at minimum steps of
@@ -1112,7 +1112,7 @@ static int dbs_sync_thread(void *data)
 	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 
 	while (1) {
-		wait_event(this_dbs_info->sync_wq,
+		wait_event_interruptible(this_dbs_info->sync_wq,
 			   sync_pending(this_dbs_info) ||
 			   kthread_should_stop());
 

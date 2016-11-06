@@ -589,28 +589,17 @@ EXPORT_SYMBOL_GPL(slim_del_controller);
 int slim_add_numbered_controller(struct slim_controller *ctrl)
 {
 	int	id;
-	int	status;
-
-	if (ctrl->nr & ~MAX_ID_MASK)
-		return -EINVAL;
-
-retry:
-	if (idr_pre_get(&ctrl_idr, GFP_KERNEL) == 0)
-		return -ENOMEM;
 
 	mutex_lock(&slim_lock);
-	status = idr_get_new_above(&ctrl_idr, ctrl, ctrl->nr, &id);
-	if (status == 0 && id != ctrl->nr) {
-		status = -EAGAIN;
-		idr_remove(&ctrl_idr, id);
-	}
+	id = idr_alloc(&ctrl_idr, ctrl, ctrl->nr, ctrl->nr + 1, GFP_KERNEL);
 	mutex_unlock(&slim_lock);
-	if (status == -EAGAIN)
-		goto retry;
 
-	if (status == 0)
-		status = slim_register_controller(ctrl);
-	return status;
+	if (id < 0)
+		return id;
+
+	ctrl->nr = id;
+	return slim_register_controller(ctrl);
+
 }
 EXPORT_SYMBOL_GPL(slim_add_numbered_controller);
 
@@ -1462,7 +1451,7 @@ EXPORT_SYMBOL_GPL(slim_disconnect_ports);
  * Client will call slim_port_get_xfer_status to get error and/or number of
  * bytes transferred if used asynchronously.
  */
-int slim_port_xfer(struct slim_device *sb, u32 ph, u8 *iobuf, u32 len,
+int slim_port_xfer(struct slim_device *sb, u32 ph, phys_addr_t iobuf, u32 len,
 				struct completion *comp)
 {
 	struct slim_controller *ctrl = sb->ctrl;
@@ -1492,7 +1481,7 @@ EXPORT_SYMBOL_GPL(slim_port_xfer);
  * processed from the multiple transfers.
  */
 enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb, u32 ph,
-			u8 **done_buf, u32 *done_len)
+			phys_addr_t *done_buf, u32 *done_len)
 {
 	struct slim_controller *ctrl = sb->ctrl;
 	u8 pn = SLIM_HDL_TO_PORT(ph);
@@ -1505,7 +1494,7 @@ enum slim_port_err slim_port_get_xfer_status(struct slim_device *sb, u32 ph,
 	 */
 	if (la != SLIM_LA_MANAGER) {
 		if (done_buf)
-			*done_buf = NULL;
+			*done_buf = 0;
 		if (done_len)
 			*done_len = 0;
 		return SLIM_P_NOT_OWNED;
@@ -1623,15 +1612,15 @@ static u32 slim_calc_prrate(struct slim_controller *ctrl, struct slim_ch *prop)
 	if (prop->prot >= SLIM_PUSH)
 		return 0;
 	if (prop->baser == SLIM_RATE_1HZ) {
-		rate = prop->ratem / 4000;
+		rate = prop->ratem / 44100;
 		rate4k = rate;
-		if (rate * 4000 == prop->ratem)
-			ratefam = SLIM_RATE_4000HZ;
+		if (rate * 44100 == prop->ratem)
+			ratefam = SLIM_RATE_44100HZ;
 		else {
-			rate = prop->ratem / 11025;
+			rate = prop->ratem / 48000;
 			rate11k = rate;
-			if (rate * 11025 == prop->ratem)
-				ratefam = SLIM_RATE_11025HZ;
+			if (rate * 48000 == prop->ratem)
+				ratefam = SLIM_RATE_48000HZ;
 			else
 				ratefam = SLIM_RATE_1HZ;
 		}
@@ -1641,12 +1630,12 @@ static u32 slim_calc_prrate(struct slim_controller *ctrl, struct slim_ch *prop)
 	}
 	if (ratefam == SLIM_RATE_1HZ) {
 		exact = false;
-		if ((rate4k + 1) * 4000 < (rate11k + 1) * 11025) {
+		if ((rate4k + 1) * 44100 < (rate11k + 1) * 48000) {
 			rate = rate4k + 1;
-			ratefam = SLIM_RATE_4000HZ;
+			ratefam = SLIM_RATE_44100HZ;
 		} else {
 			rate = rate11k + 1;
-			ratefam = SLIM_RATE_11025HZ;
+			ratefam = SLIM_RATE_48000HZ;
 		}
 	}
 	/* covert rate to coeff-exp */
@@ -1662,7 +1651,7 @@ static u32 slim_calc_prrate(struct slim_controller *ctrl, struct slim_ch *prop)
 		} else
 			done = true;
 	}
-	if (ratefam == SLIM_RATE_4000HZ) {
+	if (ratefam == SLIM_RATE_44100HZ) {
 		if (rate == 1)
 			pr = 0x10;
 		else {
@@ -1696,19 +1685,19 @@ static int slim_nextdefine_ch(struct slim_device *sb, u8 chan)
 
 	slc->prrate = slim_calc_prrate(ctrl, prop);
 	dev_dbg(&ctrl->dev, "ch:%d, chan PR rate:%x\n", chan, slc->prrate);
-	if (prop->baser == SLIM_RATE_4000HZ)
-		chrate = 4000 * prop->ratem;
-	else if (prop->baser == SLIM_RATE_11025HZ)
-		chrate = 11025 * prop->ratem;
+	if (prop->baser == SLIM_RATE_44100HZ)
+		chrate = 44100 * prop->ratem;
+	else if (prop->baser == SLIM_RATE_48000HZ)
+		chrate = 48000 * prop->ratem;
 	else
 		chrate = prop->ratem;
 	/* max allowed sample freq = 768 seg/frame */
 	if (chrate > 3600000)
 		return -EDQUOT;
-	if (prop->baser == SLIM_RATE_4000HZ &&
-			ctrl->a_framer->superfreq == 4000)
+	if (prop->baser == SLIM_RATE_44100HZ &&
+			ctrl->a_framer->superfreq == 44100)
 		coeff = prop->ratem;
-	else if (prop->baser == SLIM_RATE_11025HZ &&
+	else if (prop->baser == SLIM_RATE_48000HZ &&
 			ctrl->a_framer->superfreq == 3675)
 		coeff = 3 * prop->ratem;
 	else {

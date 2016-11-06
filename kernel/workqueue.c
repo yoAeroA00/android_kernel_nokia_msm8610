@@ -42,6 +42,7 @@
 #include <linux/lockdep.h>
 #include <linux/idr.h>
 #include <linux/bug.h>
+#include <linux/moduleparam.h>
 
 #include "workqueue_sched.h"
 
@@ -262,18 +263,31 @@ struct workqueue_struct {
 	char			name[];		/* I: workqueue name */
 };
 
+/* see the comment above the definition of WQ_POWER_EFFICIENT */
+#ifdef CONFIG_WQ_POWER_EFFICIENT_DEFAULT
+static bool wq_power_efficient = true;
+#else
+static bool wq_power_efficient;
+#endif
+
+module_param_named(power_efficient, wq_power_efficient, bool, 0644);
+
 struct workqueue_struct *system_wq __read_mostly;
 struct workqueue_struct *system_long_wq __read_mostly;
 struct workqueue_struct *system_nrt_wq __read_mostly;
 struct workqueue_struct *system_unbound_wq __read_mostly;
 struct workqueue_struct *system_freezable_wq __read_mostly;
 struct workqueue_struct *system_nrt_freezable_wq __read_mostly;
+struct workqueue_struct *system_power_efficient_wq __read_mostly;
+struct workqueue_struct *system_freezable_power_efficient_wq __read_mostly;
 EXPORT_SYMBOL_GPL(system_wq);
 EXPORT_SYMBOL_GPL(system_long_wq);
 EXPORT_SYMBOL_GPL(system_nrt_wq);
 EXPORT_SYMBOL_GPL(system_unbound_wq);
 EXPORT_SYMBOL_GPL(system_freezable_wq);
 EXPORT_SYMBOL_GPL(system_nrt_freezable_wq);
+EXPORT_SYMBOL_GPL(system_power_efficient_wq);
+EXPORT_SYMBOL_GPL(system_freezable_power_efficient_wq);
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/workqueue.h>
@@ -2690,6 +2704,102 @@ static int try_to_grab_pending(struct work_struct *work)
 	return ret;
 }
 
+static void __queue_delayed_work(int cpu, struct workqueue_struct *wq,
+			       struct delayed_work *dwork, unsigned long delay)
+{
+	struct timer_list *timer = &dwork->timer;
+	struct work_struct *work = &dwork->work;
+	unsigned int lcpu;
+
+	WARN_ON_ONCE(timer->function != delayed_work_timer_fn ||
+		     timer->data != (unsigned long)dwork);
+	WARN_ON_ONCE(timer_pending(timer));
+	WARN_ON_ONCE(!list_empty(&work->entry));
+
+	/*
+	 * If @delay is 0, queue @dwork->work immediately. This is for
+	 * both optimization and correctness. The earliest @timer can
+	 * expire is on the closest next tick and delayed_work users depend
+	 * on that there's no such delay when @delay is 0.
+	 */
+	if (!delay) {
+		__queue_work(cpu, wq, &dwork->work);
+		return;
+	}
+
+	timer_stats_timer_set_start_info(&dwork->timer);
+
+	/*
+	 * This stores cwq for the moment, for the timer_fn. Note that the
+	 * work's gcwq is preserved to allow reentrance detection for
+	 * delayed works.
+	 */
+	if (!(wq->flags & WQ_UNBOUND)) {
+		struct global_cwq *gcwq = get_work_gcwq(work);
+
+		/*
+		 * If we cannot get the last gcwq from @work directly,
+		 * select the last CPU such that it avoids unnecessarily
+		 * triggering non-reentrancy check in __queue_work().
+		 */
+		lcpu = cpu;
+		if (gcwq)
+			lcpu = gcwq->cpu;
+		if (lcpu == WORK_CPU_UNBOUND)
+			lcpu = raw_smp_processor_id();
+	} else {
+		lcpu = WORK_CPU_UNBOUND;
+	}
+
+	set_work_cwq(work, get_cwq(lcpu, wq), 0);
+
+	dwork->cpu = cpu;
+	timer->expires = jiffies + delay;
+
+	if (unlikely(cpu != WORK_CPU_UNBOUND))
+		add_timer_on(timer, cpu);
+	else
+		add_timer(timer);
+}
+
+/**
+ * mod_delayed_work_on - modify delay of or queue a delayed work on specific CPU
+ * @cpu: CPU number to execute work on
+ * @wq: workqueue to use
+ * @dwork: work to queue
+ * @delay: number of jiffies to wait before queueing
+ *
+ * If @dwork is idle, equivalent to queue_delayed_work_on(); otherwise,
+ * modify @dwork's timer so that it expires after @delay. If @delay is
+ * zero, @work is guaranteed to be scheduled immediately regardless of its
+ * current state.
+ *
+ * Returns %false if @dwork was idle and queued, %true if @dwork was
+ * pending and its timer was modified.
+ *
+ * This function is safe to call from any context including IRQ handler.
+ * See try_to_grab_pending() for details.
+ */
+bool mod_delayed_work_on(int cpu, struct workqueue_struct *wq,
+			struct delayed_work *dwork, unsigned long delay)
+{
+	unsigned long flags = 0;
+	int ret;
+
+	do {
+		ret = try_to_grab_pending(&dwork->work);
+	} while (unlikely(ret == -EAGAIN));
+
+	if (likely(ret >= 0)) {
+		__queue_delayed_work(cpu, wq, dwork, delay);
+		local_irq_restore(flags);
+	}
+
+	/* -ENOENT from try_to_grab_pending() becomes %true */
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mod_delayed_work_on);
+
 static bool __cancel_work_timer(struct work_struct *work,
 				struct timer_list* timer)
 {
@@ -3012,6 +3122,10 @@ struct workqueue_struct *__alloc_workqueue_key(const char *fmt,
 	struct workqueue_struct *wq;
 	unsigned int cpu;
 	size_t namelen;
+
+	/* see the comment above the definition of WQ_POWER_EFFICIENT */
+	if ((flags & WQ_POWER_EFFICIENT) && wq_power_efficient)
+		flags |= WQ_UNBOUND;
 
 	/* determine namelen, allocate wq and format name */
 	va_start(args, lock_name);
@@ -3983,9 +4097,15 @@ static int __init init_workqueues(void)
 					      WQ_FREEZABLE, 0);
 	system_nrt_freezable_wq = alloc_workqueue("events_nrt_freezable",
 			WQ_NON_REENTRANT | WQ_FREEZABLE, 0);
+	system_power_efficient_wq = alloc_workqueue("events_power_efficient",
+					      WQ_POWER_EFFICIENT, 0);
+	system_freezable_power_efficient_wq = alloc_workqueue("events_freezable_power_efficient",
+					      WQ_FREEZABLE | WQ_POWER_EFFICIENT,
+					      0);
 	BUG_ON(!system_wq || !system_long_wq || !system_nrt_wq ||
 	       !system_unbound_wq || !system_freezable_wq ||
-		!system_nrt_freezable_wq);
+	       !system_nrt_freezable_wq || !system_power_efficient_wq ||
+	       !system_freezable_power_efficient_wq);
 	return 0;
 }
 early_initcall(init_workqueues);

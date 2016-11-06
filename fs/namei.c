@@ -33,6 +33,7 @@
 #include <linux/device_cgroup.h>
 #include <linux/fs_struct.h>
 #include <linux/posix_acl.h>
+#include <linux/zfile.h>
 #include <asm/uaccess.h>
 
 #include "internal.h"
@@ -1759,7 +1760,7 @@ static int path_lookupat(int dfd, const char *name,
 	err = path_init(dfd, name, flags | LOOKUP_PARENT, nd, &base);
 
 	if (unlikely(err))
-		return err;
+		goto out;
 
 	current->total_link_count = 0;
 	err = link_path_walk(name, nd);
@@ -1787,6 +1788,7 @@ static int path_lookupat(int dfd, const char *name,
 		}
 	}
 
+out:
 	if (base)
 		fput(base);
 
@@ -2462,6 +2464,10 @@ struct file *do_filp_open(int dfd, const char *pathname,
 		filp = path_openat(dfd, pathname, &nd, op, flags);
 	if (unlikely(filp == ERR_PTR(-ESTALE)))
 		filp = path_openat(dfd, pathname, &nd, op, flags | LOOKUP_REVAL);
+	/* Transparent compression hook */
+	if (!IS_ERR(filp))
+		if (zfile_is_compressed(filp))
+			filp = zfile_open(filp, pathname);
 	return filp;
 }
 

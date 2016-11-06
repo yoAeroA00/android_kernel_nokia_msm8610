@@ -111,7 +111,11 @@ void __init msm8610_add_drivers(void)
 	rpm_regulator_smd_driver_init();
 	qpnp_regulator_init();
 	tsens_tm_init_driver();
+#ifdef CONFIG_INTELLI_THERMAL
+	msm_thermal_init(NULL);
+#else
 	msm_thermal_device_init();
+#endif
 
 	if (of_board_is_rumi())
 		msm_clock_init(&msm8610_rumi_clock_init_data);
@@ -136,7 +140,7 @@ static const char *msm8610_dt_match[] __initconst = {
 	NULL
 };
 
-DT_MACHINE_START(MSM8610_DT, "Qualcomm MSM 8610 (Flattened Device Tree)")
+DT_MACHINE_START(MSM8610_DT, "Qualcomm MSM 8610 (Flattened Device Tree) by yoAeroA00")
 	.map_io = msm_map_msm8610_io,
 	.init_irq = msm_dt_init_irq,
 	.init_machine = msm8610_init,

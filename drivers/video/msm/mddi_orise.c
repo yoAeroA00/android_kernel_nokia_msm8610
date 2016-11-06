@@ -107,9 +107,9 @@ static int __init mddi_orise_init(void)
 		pinfo->wait_cycle = 0;
 		pinfo->bpp = 18;
 		pinfo->fb_num = 2;
-		pinfo->clk_rate = 192000000;
+		pinfo->clk_rate = 235000000;
 		pinfo->clk_min = 192000000;
-		pinfo->clk_max = 192000000;
+		pinfo->clk_max = 248000000;
 		pinfo->lcd.rev = 2;
 		pinfo->lcd.vsync_enable = FALSE;
 		pinfo->lcd.refx100 = 6050;

@@ -57,11 +57,26 @@ struct mmc_ext_csd {
 	u8			max_packed_writes;
 	u8			max_packed_reads;
 	u8			packed_event_en;
+	u8			pre_eol_info;
+#define MMC_PRE_EOL_NORMAL	0x01
+#define MMC_PRE_EOL_WARNING	0x02
+#define MMC_PRE_EOL_URGENT	0x03
+	u8			dev_life_time_est_a;
+	u8			dev_life_time_est_b;
+	unsigned int		vendor_health_report[8];
+	unsigned int		firmware_version[2];
+	unsigned int		device_version;
 	unsigned int		part_time;		/* Units: ms */
 	unsigned int		sa_timeout;		/* Units: 100ns */
 	unsigned int		generic_cmd6_time;	/* Units: 10ms */
 	unsigned int            power_off_longtime;     /* Units: ms */
 	u8			power_off_notification;	/* state */
+	u8			drv_type;		/* eMMC Driver type */
+#define MMC_DRIVER_TYPE_0	0x01
+#define MMC_DRIVER_TYPE_1	0x02
+#define MMC_DRIVER_TYPE_2	0x04
+#define MMC_DRIVER_TYPE_3	0x08
+#define MMC_DRIVER_TYPE_4	0x10
 	unsigned int		hs_max_dtr;
 #define MMC_HIGH_26_MAX_DTR	26000000
 #define MMC_HIGH_52_MAX_DTR	52000000
@@ -94,6 +109,7 @@ struct mmc_ext_csd {
 	u8			raw_erased_mem_count;	/* 181 */
 	u8			raw_ext_csd_structure;	/* 194 */
 	u8			raw_card_type;		/* 196 */
+	u8			raw_driver_strength;	/* 197 */
 	u8			out_of_int_time;	/* 198 */
 	u8			raw_s_a_timeout;		/* 217 */
 	u8			raw_hc_erase_gap_size;	/* 221 */
@@ -104,6 +120,11 @@ struct mmc_ext_csd {
 	u8			raw_sec_feature_support;/* 231 */
 	u8			raw_trim_mult;		/* 232 */
 	u8			raw_bkops_status;	/* 246 */
+	u8			raw_firmware_version[8];/* 254 - 8 bytes */
+	u8			raw_device_version[2];	/* 262 - 2 bytes */
+	u8			raw_optimal_trim_size;	/* 264 */
+	u8			raw_optimal_write_size;	/* 265 */
+	u8			raw_optimal_read_size;	/* 266 */
 	u8			raw_sectors[4];		/* 212 - 4 bytes */
 
 	unsigned int            feature_support;
@@ -125,6 +146,8 @@ struct sd_ssr {
 	unsigned int		au;			/* In sectors */
 	unsigned int		erase_timeout;		/* In milliseconds */
 	unsigned int		erase_offset;		/* In milliseconds */
+	unsigned char		speed_class;
+	unsigned char		uhs_speed_grade;
 };
 
 struct sd_switch_caps {
@@ -220,6 +243,7 @@ enum mmc_blk_status {
 	MMC_BLK_URGENT,
 	MMC_BLK_URGENT_DONE,
 	MMC_BLK_NO_REQ_TO_STOP,
+	MMC_BLK_BUS_ERR,
 };
 
 struct mmc_wr_pack_stats {
@@ -309,6 +333,10 @@ struct mmc_bkops_info {
 #define BKOPS_SIZE_PERCENTAGE_TO_QUEUE_DELAYED_WORK 1 /* 1% */
 };
 
+enum mmc_pon_type {
+	MMC_LONG_PON = 1,
+	MMC_SHRT_PON,
+};
 /*
  * MMC device
  */
@@ -356,6 +384,8 @@ struct mmc_card {
 #define MMC_QUIRK_BROKEN_DATA_TIMEOUT	(1<<12)
 
 #define MMC_QUIRK_CACHE_DISABLE (1 << 14)       /* prevent cache enable */
+#define MMC_QUIRK_SLOW_HPI_RESPONSE (1 << 30)   /* wait between STOP and HPI */
+#define MMC_QUIRK_RETRY_FLUSH_TIMEOUT (1 << 31) /* requeue flush command timeouts */
 
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
@@ -395,8 +425,17 @@ struct mmc_card {
 	struct device_attribute rpm_attrib;
 	unsigned int		idle_timeout;
 	struct notifier_block        reboot_notify;
-	bool issue_long_pon;
+	enum mmc_pon_type pon_type;
 	u8 *cached_ext_csd;
+
+#define MMC_ERROR_FAILURE_RATIO	10		/* give up on cards with too many failures/successes */
+#define MMC_ERROR_FORGIVE_RATIO	10		/* forgive cards with enough successes/failures */
+	unsigned int		failures;	/* number of recent request failures */
+	unsigned int		successes;	/* successful requests since 1st recorded failure  */
+#define MMC_ERROR_MAX_TIME_MS	10000LL		/* give up after 10 seconds of trouble */
+	ktime_t			failure_time;	/* time of the first failure */
+#define MMC_THROTTLE_BACK_THRESHOLD 2
+	unsigned int		crc_errors;	/* number of CRC errors seen at this speed */
 };
 
 /*
@@ -453,6 +492,7 @@ struct mmc_fixup {
 #define CID_MANFID_TOSHIBA	0x11
 #define CID_MANFID_MICRON	0x13
 #define CID_MANFID_SAMSUNG	0x15
+#define CID_MANFID_SANDISK2	0x45
 #define CID_MANFID_HYNIX	0x90
 
 #define END_FIXUP { 0 }
@@ -558,6 +598,7 @@ static inline void __maybe_unused remove_quirk(struct mmc_card *card, int data)
 #define mmc_card_clr_doing_bkops(c)	((c)->state &= ~MMC_STATE_DOING_BKOPS)
 #define mmc_card_set_need_bkops(c)	((c)->state |= MMC_STATE_NEED_BKOPS)
 #define mmc_card_clr_need_bkops(c)	((c)->state &= ~MMC_STATE_NEED_BKOPS)
+
 /*
  * Quirk add/remove for MMC products.
  */
@@ -652,5 +693,5 @@ extern struct mmc_wr_pack_stats *mmc_blk_get_packed_statistics(
 			struct mmc_card *card);
 extern void mmc_blk_init_packed_statistics(struct mmc_card *card);
 extern void mmc_blk_disable_wr_packing(struct mmc_queue *mq);
-extern int mmc_send_long_pon(struct mmc_card *card);
+extern int mmc_send_pon(struct mmc_card *card);
 #endif /* LINUX_MMC_CARD_H */

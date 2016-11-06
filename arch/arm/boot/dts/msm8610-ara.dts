@@ -20,7 +20,7 @@
 /include/ "sms_dtv.dtsi"
 
 / {
-	model = "Qualcomm MSM 8610v2 ARA";
+	model = "Qualcomm MSM 8610v2 ARA by yoAeroA00";
 	compatible = "qcom,msm8610-mtp", "qcom,msm8610", "qcom,mtp";
 	qcom,board-id = <0x50 0>;
 };

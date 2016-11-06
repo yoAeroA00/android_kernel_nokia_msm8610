@@ -899,10 +899,12 @@ static __ref int do_hotplug(void *data)
 {
 	int ret = 0;
 	uint32_t cpu = 0, mask = 0;
+	struct sched_param param = {.sched_priority = MAX_RT_PRIO-2};
 
 	if (!core_control_enabled)
 		return -EINVAL;
 
+	sched_setscheduler(current, SCHED_FIFO, &param);
 	while (!kthread_should_stop()) {
 		wait_for_completion(&hotplug_notify_complete);
 		INIT_COMPLETION(hotplug_notify_complete);
@@ -1237,12 +1239,16 @@ static int hotplug_notify(enum thermal_trip_type type, int temp, void *data)
 		return 0;
 	switch (type) {
 	case THERMAL_TRIP_CONFIGURABLE_HI:
-		if (!(cpu_node->offline))
+		if (!(cpu_node->offline)) {
+			pr_info("%s reached HI temp threshold: %d\n", cpu_node->sensor_type, temp);
 			cpu_node->offline = 1;
+		}
 		break;
 	case THERMAL_TRIP_CONFIGURABLE_LOW:
-		if (cpu_node->offline)
+		if (cpu_node->offline) {
+			pr_info("%s reached LOW temp threshold: %d\n", cpu_node->sensor_type, temp);
 			cpu_node->offline = 0;
+		}
 		break;
 	default:
 		break;
@@ -1511,8 +1517,7 @@ static void __ref disable_msm_thermal(void)
 	uint32_t cpu = 0;
 
 	/* make sure check_temp is no longer running */
-	cancel_delayed_work(&check_temp_work);
-	flush_scheduled_work();
+	cancel_delayed_work_sync(&check_temp_work);
 
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {

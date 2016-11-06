@@ -115,15 +115,23 @@
 #include <net/checksum.h>
 #include <linux/security.h>
 
-struct hlist_head unix_socket_table[UNIX_HASH_SIZE + 1];
+struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
 EXPORT_SYMBOL_GPL(unix_socket_table);
 DEFINE_SPINLOCK(unix_table_lock);
 EXPORT_SYMBOL_GPL(unix_table_lock);
 static atomic_long_t unix_nr_socks;
 
-#define unix_sockets_unbound	(&unix_socket_table[UNIX_HASH_SIZE])
+static struct hlist_head *unix_sockets_unbound(void *addr)
+{
+	unsigned long hash = (unsigned long)addr;
 
-#define UNIX_ABSTRACT(sk)	(unix_sk(sk)->addr->hash != UNIX_HASH_SIZE)
+	hash ^= hash >> 16;
+	hash ^= hash >> 8;
+	hash %= UNIX_HASH_SIZE;
+	return &unix_socket_table[UNIX_HASH_SIZE + hash];
+}
+
+#define UNIX_ABSTRACT(sk) (unix_sk(sk)->addr->hash < UNIX_HASH_SIZE)
 
 #ifdef CONFIG_SECURITY_NETWORK
 static void unix_get_secdata(struct scm_cookie *scm, struct sk_buff *skb)
@@ -761,7 +769,7 @@ static struct sock *unix_create1(struct net *net, struct socket *sock)
 	mutex_init(&u->readlock); /* single task reading lock */
 	init_waitqueue_head(&u->peer_wait);
 	init_waitqueue_func_entry(&u->peer_wake, unix_dgram_peer_wake_relay);
-	unix_insert_socket(unix_sockets_unbound, sk);
+	unix_insert_socket(unix_sockets_unbound(sk), sk);
 out:
 	if (sk == NULL)
 		atomic_long_dec(&unix_nr_socks);

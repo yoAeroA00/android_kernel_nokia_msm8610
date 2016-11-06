@@ -263,6 +263,19 @@ config NWFLASH
 
 source "drivers/char/hw_random/Kconfig"
 
+config FRANDOM
+	tristate "FRANDOM Support Replacing DEFAULT RANDOM"
+	default y
+	---help---
+	  Frandom is a Linux kernel random number generator, 
+	  which is 10-50 times faster than what you get from Linux'
+	  built-in (/dev/urandom.orig). And it uses very little
+	  (/dev/random) or none (/dev/urandom) of the kernel's
+	  entropy pool, so it is very useful for applications that
+	  require a handy source for lots of random data.
+
+	  If unsure, say Y.
+
 config NVRAM
 	tristate "/dev/nvram support"
 	depends on ATARI || X86 || (ARM && RTC_DRV_CMOS) || GENERIC_NVRAM

@@ -25,6 +25,7 @@
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/time.h>
+#include <linux/powersuspend.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
@@ -32,6 +33,12 @@
 #ifndef CONFIG_LOGCAT_SIZE
 #define CONFIG_LOGCAT_SIZE 256
 #endif
+
+static unsigned int log_enabled = 1;
+static unsigned int log_always_on = 0;
+
+module_param(log_enabled, uint, S_IWUSR | S_IRUGO);
+module_param(log_always_on, uint, S_IWUSR | S_IRUGO);
 
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -442,6 +449,23 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 	return count;
 }
 
+static void log_early_suspend(struct power_suspend *handler)
+{
+	if (log_enabled)
+		log_enabled = 0;
+}
+
+static void log_late_resume(struct power_suspend *handler)
+{
+	if (!log_enabled)
+		log_enabled = 1;
+}
+
+static struct power_suspend log_suspend = {
+	.suspend = log_early_suspend,
+	.resume = log_late_resume,
+};
+
 /*
  * logger_aio_write - our write method, implementing support for write(),
  * writev(), and aio_write(). Writes are our fast path, and we try to optimize
@@ -455,6 +479,9 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	struct logger_entry header;
 	struct timespec now;
 	ssize_t ret = 0;
+
+	if (!log_enabled && !log_always_on)
+	return 0;
 
 	now = current_kernel_time();
 
@@ -732,10 +759,10 @@ static struct logger_log VAR = { \
 	.size = SIZE, \
 };
 
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, CONFIG_LOGCAT_SIZE*1024)
-DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, CONFIG_LOGCAT_SIZE*1024)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, CONFIG_LOGCAT_SIZE*1024)
-DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 64*1024)
+DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 32*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 32*1024)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 64*1024)
 
 static struct logger_log *get_log_from_minor(int minor)
 {
@@ -770,6 +797,8 @@ static int __init init_log(struct logger_log *log)
 static int __init logger_init(void)
 {
 	int ret;
+
+	register_power_suspend(&log_suspend);
 
 	ret = init_log(&log_main);
 	if (unlikely(ret))

@@ -212,6 +212,7 @@ static int lpm_set_l2_mode(struct lpm_system_state *system_state,
 
 	switch (sleep_mode) {
 	case MSM_SPM_L2_MODE_POWER_COLLAPSE:
+		pr_info("Configuring for L2 power collapse\n");
 		msm_pm_set_l2_flush_flag(MSM_SCM_L2_OFF);
 		break;
 	case MSM_SPM_L2_MODE_GDHS:
@@ -544,11 +545,11 @@ static noinline int lpm_cpu_power_select(struct cpuidle_device *dev, int *index)
 			if (!dev->cpu && msm_rpm_waiting_for_ack())
 					break;
 
-		if ((next_wakeup_us >> 10) > pwr->latency_us) {
+		if ((next_wakeup_us >> 10) > pwr->time_overhead_us) {
 			power = pwr->ss_power;
 		} else {
 			power = pwr->ss_power;
-			power -= (pwr->latency_us * pwr->ss_power)
+			power -= (pwr->time_overhead_us * pwr->ss_power)
 					/ next_wakeup_us;
 			power += pwr->energy_overhead / next_wakeup_us;
 		}
@@ -737,14 +738,20 @@ static void lpm_enter_low_power(struct lpm_system_state *system_state,
 	lpm_cpu_unprepare(system_state, cpu_index, from_idle);
 }
 
+DEFINE_PER_CPU(int32_t, last_index);
+DEFINE_PER_CPU(int64_t, sleep_time);
+
 static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int index)
 {
 	int64_t time = ktime_to_ns(ktime_get());
 	int idx;
 
+	per_cpu(sleep_time, dev->cpu) = ktime_to_ns(tick_nohz_get_sleep_length());
+
 	idx = menu_select ? lpm_cpu_menu_select(dev, &index) :
 			lpm_cpu_power_select(dev, &index);
+	per_cpu(last_index, dev->cpu) = idx;
 	if (idx < 0) {
 		local_irq_enable();
 		return -EPERM;
@@ -753,7 +760,13 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	lpm_enter_low_power(&sys_state, idx, true);
 
 	time = ktime_to_ns(ktime_get()) - time;
+
+	if (per_cpu(sleep_time, dev->cpu) + NSEC_PER_SEC < time)
+		pr_info("%s(): Expected sleep time = %lld, residency = %lld\n", __func__,
+				per_cpu(sleep_time, dev->cpu), time);
+
 	do_div(time, 1000);
+
 	dev->last_residency = (int)time;
 	local_irq_enable();
 	return index;
@@ -970,9 +983,8 @@ static int lpm_system_probe(struct platform_device *pdev)
 			goto fail;
 		}
 
-		if (l->l2_mode == MSM_SPM_L2_MODE_GDHS ||
-				l->l2_mode == MSM_SPM_L2_MODE_POWER_COLLAPSE)
-			l->notify_rpm = true;
+		key = "qcom,send-rpm-sleep-set";
+		l->notify_rpm = of_property_read_bool(node, key);
 
 		if (l->l2_mode >= MSM_SPM_L2_MODE_GDHS)
 			l->sync = true;

@@ -1143,6 +1143,8 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 
 	if (cmd->data)
 		host->data_start_time = ktime_get();
+
+	mmc_cmd_log(host->mmc, cmd->opcode, cmd->arg);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 
@@ -1166,6 +1168,7 @@ static void sdhci_finish_command(struct sdhci_host *host)
 		} else {
 			host->cmd->resp[0] = sdhci_readl(host, SDHCI_RESPONSE);
 		}
+		mmc_cmd_log_resp(host->mmc, host->cmd->resp[0]);
 	}
 
 	host->cmd->error = 0;
@@ -1838,6 +1841,16 @@ static int sdhci_do_get_ro(struct sdhci_host *host)
 	return 0;
 }
 
+static int sdhci_tune_drive_strength(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->tune_drive_strength)
+		return host->ops->tune_drive_strength(host);
+
+	return -ENOSYS;
+}
+
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -1975,6 +1988,8 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		 * failed. We power cycle the card, and retry initialization
 		 * sequence by setting S18R to 0.
 		 */
+		pr_info(DRIVER_NAME ": Switching to 1.8V signalling "
+			"voltage failed, retrying with S18R set to 0\n");
 		pwr = sdhci_readb(host, SDHCI_POWER_CONTROL);
 		pwr &= ~SDHCI_POWER_ON;
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
@@ -1983,13 +1998,15 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 
 		/* Wait for 1ms as per the spec */
 		usleep_range(1000, 1500);
+
+		if (host->ops->hw_reset)
+			host->ops->hw_reset(host);
+
 		pwr |= SDHCI_POWER_ON;
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 		if (host->ops->check_power_status)
 			host->ops->check_power_status(host, REQ_BUS_ON);
 
-		pr_info(DRIVER_NAME ": Switching to 1.8V signalling "
-			"voltage failed, retrying with S18R set to 0\n");
 		return -EAGAIN;
 	} else
 		/* No signal voltage switch required */
@@ -2019,12 +2036,12 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	unsigned long timeout;
 	int err = 0;
 	bool requires_tuning_nonuhs = false;
+	unsigned long flags;
 
 	host = mmc_priv(mmc);
 
 	sdhci_runtime_pm_get(host);
-	disable_irq(host->irq);
-	spin_lock(&host->lock);
+	spin_lock_irqsave(&host->lock, flags);
 
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 
@@ -2045,18 +2062,15 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	    requires_tuning_nonuhs)
 		ctrl |= SDHCI_CTRL_EXEC_TUNING;
 	else {
-		spin_unlock(&host->lock);
-		enable_irq(host->irq);
+		spin_unlock_irqrestore(&host->lock, flags);
 		sdhci_runtime_pm_put(host);
 		return 0;
 	}
 
 	if (host->ops->execute_tuning) {
-		spin_unlock(&host->lock);
-		enable_irq(host->irq);
+		spin_unlock_irqrestore(&host->lock, flags);
 		err = host->ops->execute_tuning(host, opcode);
-		disable_irq(host->irq);
-		spin_lock(&host->lock);
+		spin_lock_irqsave(&host->lock, flags);
 		goto out;
 	}
 	sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
@@ -2127,15 +2141,13 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 		host->cmd = NULL;
 		host->mrq = NULL;
 
-		spin_unlock(&host->lock);
-		enable_irq(host->irq);
+		spin_unlock_irqrestore(&host->lock, flags);
 
 		/* Wait for Buffer Read Ready interrupt */
 		wait_event_interruptible_timeout(host->buf_ready_int,
 					(host->tuning_done == 1),
 					msecs_to_jiffies(50));
-		disable_irq(host->irq);
-		spin_lock(&host->lock);
+		spin_lock_irqsave(&host->lock, flags);
 
 		if (!host->tuning_done) {
 			pr_info(DRIVER_NAME ": Timeout waiting for "
@@ -2208,8 +2220,7 @@ out:
 		err = 0;
 
 	sdhci_clear_set_irqs(host, SDHCI_INT_DATA_AVAIL, ier);
-	spin_unlock(&host->lock);
-	enable_irq(host->irq);
+	spin_unlock_irqrestore(&host->lock, flags);
 	sdhci_runtime_pm_put(host);
 
 	return err;
@@ -2255,6 +2266,17 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 	sdhci_runtime_pm_get(host);
 	sdhci_do_enable_preset_value(host, enable);
 	sdhci_runtime_pm_put(host);
+}
+
+static int sdhci_select_drive_strength(struct mmc_host *mmc, int host_drv,
+		int card_drv)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops && host->ops->select_drive_strength)
+		return host->ops->select_drive_strength(host, host_drv,
+							card_drv);
+	return 0;
 }
 
 static int sdhci_stop_request(struct mmc_host *mmc)
@@ -2315,9 +2337,11 @@ static const struct mmc_host_ops sdhci_ops = {
 	.get_ro		= sdhci_get_ro,
 	.hw_reset	= sdhci_hw_reset,
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
+	.tune_drive_strength		= sdhci_tune_drive_strength,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
+	.select_drive_strength		= sdhci_select_drive_strength,
 	.enable		= sdhci_enable,
 	.disable	= sdhci_disable,
 	.stop_request = sdhci_stop_request,

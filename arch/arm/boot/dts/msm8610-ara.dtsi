@@ -11,7 +11,7 @@
  */
 
 &soc {
-	ram_console {
+        ram_console {
                 compatible = "android,ram-console";
                 status = "ok";
 
@@ -23,7 +23,7 @@
                 compatible = "android,bootinfo";
                 status = "ok";
 
-                android,bootinfo-buffer-start = <0x3ef20000>;
+                android,bootinfo-buffer-start = <0x3fc20000>;
                 android,bootinfo-buffer-size = <0x800>;
         };
 

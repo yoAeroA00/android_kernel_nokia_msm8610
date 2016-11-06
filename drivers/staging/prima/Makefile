@@ -454,6 +454,7 @@ OBJS :=		$(BAP_OBJS) \
 		$(WDI_OBJS)
 
 EXTRA_CFLAGS += $(INCS)
+EXTRA_CFLAGS += -fno-pic
 EXTRA_LDFLAGS += --strip-debug
 
 CDEFINES :=	-DANI_BUS_TYPE_PLATFORM=1 \
