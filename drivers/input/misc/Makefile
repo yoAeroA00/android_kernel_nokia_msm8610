@@ -71,3 +71,4 @@ obj-$(CONFIG_SENSORS_N2DM)              += n2dm.o
 obj-$(CONFIG_SENSORS_BMA250)            += bma250.o
 obj-$(CONFIG_SENSORS_APDS9930)          += apds9930.o
 obj-$(CONFIG_SENSORS_BETAMON)           += ltr554.o
+obj-$(CONFIG_SENSORS_STK3X1X_MOTO)      += stk3x1x_moto.o
