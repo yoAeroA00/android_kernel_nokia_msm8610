@@ -25,6 +25,9 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/time.h>
+#ifdef CONFIG_LCD_NOTIFY
+#include <linux/lcd_notify.h>
+#endif
 
 struct cpu_sync {
 	struct task_struct *thread;
@@ -45,6 +48,10 @@ static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
 
+#ifdef CONFIG_LCD_NOTIFY
+static struct notifier_block notif;
+#endif
+
 static unsigned int cpu_boost = 0;
 module_param(cpu_boost, uint, 0644);
 
@@ -59,6 +66,11 @@ module_param(input_boost_freq, uint, 0644);
 
 static unsigned int input_boost_ms = 60;
 module_param(input_boost_ms, uint, 0644);
+
+#ifdef CONFIG_LCD_NOTIFY
+bool wakeup_boost;
+module_param(wakeup_boost, bool, 0644);
+#endif
 
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
@@ -346,6 +358,26 @@ static struct input_handler cpuboost_input_handler = {
 	.id_table       = cpuboost_ids,
 };
 
+#ifdef CONFIG_LCD_NOTIFY
+static int lcd_notifier_callback(struct notifier_block *this,
+				unsigned long event, void *data)
+{
+	switch (event) {
+	case LCD_EVENT_ON_START:
+	case LCD_EVENT_OFF_END:
+	case LCD_EVENT_OFF_START:
+		break;
+	case LCD_EVENT_ON_END:
+		__wakeup_boost();
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+#endif
+
 static int cpu_boost_init(void)
 {
 	int cpu, ret;
@@ -373,6 +405,12 @@ static int cpu_boost_init(void)
 	atomic_notifier_chain_register(&migration_notifier_head,
 					&boost_migration_nb);
 	ret = input_register_handler(&cpuboost_input_handler);
+
+#ifdef CONFIG_LCD_NOTIFY
+	notif.notifier_call = lcd_notifier_callback;
+	if (lcd_register_client(&notif))
+		pr_err("Failed to register hotplug LCD notifier callback.\n");
+#endif
 
 	return 0;
 }

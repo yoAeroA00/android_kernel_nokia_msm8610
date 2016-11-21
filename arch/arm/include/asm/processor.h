@@ -2,6 +2,8 @@
  *  arch/arm/include/asm/processor.h
  *
  *  Copyright (C) 1995-1999 Russell King
+ * 
+ * Copyright (c) 2014, NVIDIA CORPORATION. All rights reserved.
  *
  *  Copyright (c) 2014, NVIDIA CORPORATION.  All rights reserved.
  *
@@ -132,6 +134,8 @@ static inline void prefetch(const void *ptr)
 #define HAVE_ARCH_PICK_MMAP_LAYOUT
 
 #endif
+
+#include <asm-generic/processor.h>
 
 #include <asm-generic/processor.h>
 

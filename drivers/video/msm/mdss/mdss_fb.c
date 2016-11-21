@@ -2094,11 +2094,7 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 	if (ret)
 		return ret;
 
-#ifdef CONFIG_LCD_KCAL
-	mfd->mdp.lut_update(mfd, &cmap, false);
-#else
-	mfd->mdp.lut_update(mfd, &cmap);
-#endif
+	mfd->mdp.lut_update(mfd, &cmap, NULL);
 	return 0;
 }
 

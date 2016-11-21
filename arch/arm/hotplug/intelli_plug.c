@@ -18,7 +18,9 @@
 #include <linux/slab.h>
 #include <linux/input.h>
 #include <linux/kobject.h>
-#ifdef CONFIG_POWERSUSPEND
+#ifdef CONFIG_LCD_NOTIFY
+#include <linux/lcd_notify.h>
+#elif defined(CONFIG_POWERSUSPEND)
 #include <linux/powersuspend.h>
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 #include <linux/earlysuspend.h>
@@ -39,7 +41,7 @@
 #define DEFAULT_MAX_CPUS_ONLINE		DEF_MAX_CPUS
 #define DEFAULT_NR_FSHIFT		DEFAULT_MAX_CPUS_ONLINE - 1
 #define DEFAULT_DOWN_LOCK_DUR		1000
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #define DEFAULT_MAX_CPUS_ONLINE_SUSP	1
 #endif
 
@@ -62,10 +64,13 @@ static u64 last_boost_time, last_input;
 static struct delayed_work intelli_plug_work;
 static struct work_struct up_down_work;
 static struct workqueue_struct *intelliplug_wq;
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 static struct work_struct suspend_work;
 static struct work_struct resume_work;
 static struct mutex intelli_plug_mutex;
+#ifdef CONFIG_LCD_NOTIFY
+static struct notifier_block notif;
+#endif
 #endif
 
 struct ip_cpu_info {
@@ -87,7 +92,7 @@ static unsigned int max_cpus_online = DEFAULT_MAX_CPUS_ONLINE;
 static unsigned int full_mode_profile = 0;
 static unsigned int cpu_nr_run_threshold = CPU_NR_THRESHOLD;
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 static bool hotplug_suspended = false;
 static unsigned int min_cpus_online_res = DEFAULT_MIN_CPUS_ONLINE;
 static unsigned int max_cpus_online_res = DEFAULT_MAX_CPUS_ONLINE;
@@ -267,7 +272,7 @@ static void __ref cpu_up_down_work(struct work_struct *work)
 
 static void intelli_plug_work_fn(struct work_struct *work)
 {
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	if (hotplug_suspended && max_cpus_online_susp <= 1)
 		return;
 #endif
@@ -280,7 +285,7 @@ static void intelli_plug_work_fn(struct work_struct *work)
 					msecs_to_jiffies(def_sampling_ms));
 }
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 static void freq_limiter(bool enable)
 {
 	unsigned int cpu;
@@ -406,7 +411,9 @@ static void __ref intelli_plug_resume(struct work_struct *work)
 	pr_info("intelli_plug: resumed, total core online %d\n", num_online_cpus());
 }
 
-#ifdef CONFIG_POWERSUSPEND
+#ifdef CONFIG_LCD_NOTIFY
+static void __intelli_plug_suspend(void)
+#elif defined(CONFIG_POWERSUSPEND)
 static void __intelli_plug_suspend(struct power_suspend *handler)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void __intelli_plug_suspend(struct early_suspend *handler)
@@ -415,7 +422,9 @@ static void __intelli_plug_suspend(struct early_suspend *handler)
 	schedule_work(&suspend_work);
 }
 
-#ifdef CONFIG_POWERSUSPEND
+#ifdef CONFIG_LCD_NOTIFY
+static void __intelli_plug_resume(void)
+#elif defined(CONFIG_POWERSUSPEND)
 static void __intelli_plug_resume(struct power_suspend *handler)
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void __intelli_plug_resume(struct early_suspend *handler)
@@ -424,7 +433,27 @@ static void __intelli_plug_resume(struct early_suspend *handler)
 	schedule_work(&resume_work);
 }
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#ifdef CONFIG_LCD_NOTIFY
+static int lcd_notifier_callback(struct notifier_block *this,
+				unsigned long event, void *data)
+{
+	switch (event) {
+	case LCD_EVENT_ON_END:
+	case LCD_EVENT_OFF_START:
+		break;
+	case LCD_EVENT_ON_START:
+		schedule_work(&resume_work);
+		break;
+	case LCD_EVENT_OFF_END:
+		schedule_work(&suspend_work);
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+#elif defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
 static struct power_suspend intelli_plug_power_suspend_driver = {
 #else
@@ -442,7 +471,7 @@ static void intelli_plug_input_event(struct input_handle *handle,
 {
 	u64 now;
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	if (hotplug_suspended || cpus_boosted == 1)
 		return;
 #else
@@ -534,7 +563,7 @@ static int __ref intelli_plug_start(void)
 {
 	int cpu, ret = 0;
 	struct down_lock *dl;
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	struct cpufreq_policy *p;
 	struct cpu_info *f_info;
 #endif
@@ -547,13 +576,20 @@ static int __ref intelli_plug_start(void)
 		goto err_out;
 	}
 
-#ifdef CONFIG_POWERSUSPEND
+#ifdef CONFIG_LCD_NOTIFY
+	notif.notifier_call = lcd_notifier_callback;
+        if (lcd_register_client(&notif) != 0) {
+                pr_err("%s: Failed to register LCD notifier callback\n",
+                       INTELLI_PLUG);
+		goto err_dev;
+	}
+#elif defined(CONFIG_POWERSUSPEND)
 	register_power_suspend(&intelli_plug_power_suspend_driver);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	register_early_suspend(&intelli_plug_early_suspend_driver);
 #endif
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	f_info = &per_cpu(fl_info, 0);
 	p = cpufreq_cpu_get(0);
 	f_info->sys_max = p->cpuinfo.max_freq;
@@ -567,7 +603,7 @@ static int __ref intelli_plug_start(void)
 		goto err_dev;
 	}
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	mutex_init(&intelli_plug_mutex);
 #endif
 
@@ -577,7 +613,7 @@ static int __ref intelli_plug_start(void)
 		dl = &per_cpu(lock_info, cpu);
 		INIT_DELAYED_WORK(&dl->lock_rem, remove_down_lock);
 	}
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	INIT_WORK(&suspend_work, intelli_plug_suspend);
 	INIT_WORK(&resume_work, intelli_plug_resume);
 #endif
@@ -606,7 +642,7 @@ static void __ref intelli_plug_stop(void)
 	int cpu;
 	struct down_lock *dl;
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	cancel_work_sync(&resume_work);
 	cancel_work_sync(&suspend_work);
 #endif
@@ -617,9 +653,12 @@ static void __ref intelli_plug_stop(void)
 	flush_workqueue(intelliplug_wq);
 	cancel_work_sync(&up_down_work);
 	cancel_delayed_work_sync(&intelli_plug_work);
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	mutex_destroy(&intelli_plug_mutex);
-#ifdef CONFIG_POWERSUSPEND
+#ifdef CONFIG_LCD_NOTIFY
+	lcd_unregister_client(&notif);
+	notif.notifier_call = NULL;
+#elif defined(CONFIG_POWERSUSPEND)
 	unregister_power_suspend(&intelli_plug_power_suspend_driver);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	unregister_early_suspend(&intelli_plug_early_suspend_driver);
@@ -661,7 +700,7 @@ static ssize_t show_##file_name					\
 show_one(cpus_boosted, cpus_boosted);
 show_one(min_cpus_online, min_cpus_online);
 show_one(max_cpus_online, max_cpus_online);
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 show_one(screen_off_max, screen_off_max);
 show_one(max_cpus_online_susp, max_cpus_online_susp);
 #endif
@@ -820,7 +859,7 @@ static ssize_t store_max_cpus_online(struct kobject *kobj,
 	return count;
 }
 
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 static ssize_t store_screen_off_max(struct kobject *kobj,
 				     struct kobj_attribute *attr,
 				     const char *buf, size_t count)
@@ -878,7 +917,7 @@ KERNEL_ATTR_RW(intelli_plug_active);
 KERNEL_ATTR_RW(cpus_boosted);
 KERNEL_ATTR_RW(min_cpus_online);
 KERNEL_ATTR_RW(max_cpus_online);
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 KERNEL_ATTR_RW(screen_off_max);
 KERNEL_ATTR_RW(max_cpus_online_susp);
 #endif
@@ -895,7 +934,7 @@ static struct attribute *intelli_plug_attrs[] = {
 	&cpus_boosted_attr.attr,
 	&min_cpus_online_attr.attr,
 	&max_cpus_online_attr.attr,
-#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_LCD_NOTIFY) || defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 	&screen_off_max_attr.attr,
 	&max_cpus_online_susp_attr.attr,
 #endif

@@ -24,6 +24,9 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/fb.h>
+#ifdef CONFIG_LCD_NOTIFY
+#include <linux/lcd_notify.h>
+#endif
 
 #define DEBUG 0
 
@@ -199,7 +202,7 @@ static int mp_decision(void) {
 	last_time = ktime_to_ms(ktime_get());
 #if DEBUG
 	pr_info(MPDEC_TAG"[DEBUG] rq: %u, new_state: %i | Mask=[%d%d%d%d]\n",
-			rq_depth, new_state, cpu_online(0), cpu_online(1), cpu_online(2), cpu_online(3));
+			rq_depth, new_state, cpu_online(0), cpu_online(1));
 #endif
 	return new_state;
 }
@@ -273,7 +276,7 @@ static void bricked_hotplug_suspend(struct work_struct *work)
 	}
 
 	pr_info(MPDEC_TAG": Screen -> off. Deactivated bricked hotplug. | Mask=[%d%d%d%d]\n",
-			cpu_online(0), cpu_online(1), cpu_online(2), cpu_online(3));
+			cpu_online(0), cpu_online(1));
 }
 
 static void __ref bricked_hotplug_resume(struct work_struct *work)
@@ -308,7 +311,7 @@ static void __ref bricked_hotplug_resume(struct work_struct *work)
 	if (required_reschedule) {
 		queue_delayed_work(hotplug_wq, &hotplug_work, 0);
 		pr_info(MPDEC_TAG": Screen -> on. Activated bricked hotplug. | Mask=[%d%d%d%d]\n",
-				cpu_online(0), cpu_online(1), cpu_online(2), cpu_online(3));
+				cpu_online(0), cpu_online(1));
 	}
 }
 
@@ -332,6 +335,27 @@ static void __bricked_hotplug_suspend(void)
 		msecs_to_jiffies(hotplug.suspend_defer_time * 1000)); 
 }
 
+#ifdef CONFIG_LCD_NOTIFY
+static int lcd_notifier_callback(struct notifier_block *this,
+				unsigned long event, void *data)
+{
+	switch (event) {
+	case LCD_EVENT_ON_END:
+	case LCD_EVENT_OFF_START:
+		break;
+	case LCD_EVENT_ON_START:
+		__bricked_hotplug_resume();
+		break;
+	case LCD_EVENT_OFF_END:
+		__bricked_hotplug_suspend();
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+#else
 static int prev_fb = FB_BLANK_UNBLANK;
 
 static int fb_notifier_callback(struct notifier_block *self,
@@ -360,6 +384,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	return NOTIFY_OK;
 }
+#endif
 
 static int bricked_hotplug_start(void)
 {
@@ -381,12 +406,21 @@ static int bricked_hotplug_start(void)
 		goto err_dev;
 	}
 
+#ifdef CONFIG_LCD_NOTIFY
+	notif.notifier_call = lcd_notifier_callback;
+	if (lcd_register_client(&notif)) {
+		pr_err("%s: Failed to register LCD notifier callback\n",
+			MPDEC_TAG);
+		goto err_susp;
+	}
+#else
 	notif.notifier_call = fb_notifier_callback;
 	if (fb_register_client(&notif)) {
 		pr_err("%s: Failed to register FB notifier callback\n",
 			MPDEC_TAG);
 		goto err_susp;
 	}
+#endif
 
 	mutex_init(&hotplug.bricked_cpu_mutex);
 	mutex_init(&hotplug.bricked_hotplug_mutex);
@@ -430,7 +464,11 @@ static void bricked_hotplug_stop(void)
 	cancel_delayed_work_sync(&hotplug_work);
 	mutex_destroy(&hotplug.bricked_hotplug_mutex);
 	mutex_destroy(&hotplug.bricked_cpu_mutex);
+#ifdef CONFIG_LCD_NOTIFY
+	lcd_unregister_client(&notif);
+#else
 	fb_unregister_client(&notif);
+#endif
 	notif.notifier_call = NULL;
 	destroy_workqueue(susp_wq);
 	destroy_workqueue(hotplug_wq);

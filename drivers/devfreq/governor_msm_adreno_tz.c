@@ -143,7 +143,8 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	}
 
 #ifdef CONFIG_ADRENO_IDLER
-	if (adreno_idler(stats, devfreq, freq)) {
+	if (adreno_idler_active &&
+			adreno_idler(stats, devfreq, freq)) {
 		/* adreno_idler has asked to bail out now */
 		return 0;
 	}
@@ -352,9 +353,10 @@ static int tz_suspend(struct devfreq *devfreq)
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 	struct devfreq_dev_profile *profile = devfreq->profile;
 	unsigned long freq;
-	__secure_tz_entry2(TZ_RESET_ID, 0, 0);
 
 	suspended = true;
+
+	__secure_tz_entry2(TZ_RESET_ID, 0, 0);
 
 	priv->bin.total_time = 0;
 	priv->bin.busy_time = 0;

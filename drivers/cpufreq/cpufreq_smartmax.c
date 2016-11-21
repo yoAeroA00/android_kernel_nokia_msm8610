@@ -360,14 +360,9 @@ inline static void smartmax_update_min_max_allcpus(void) {
 	for_each_online_cpu(cpu)
 	{
 		struct smartmax_info_s *this_smartmax = &per_cpu(smartmax_info, cpu);
-		if (this_smartmax->cur_policy){
-			if (lock_policy_rwsem_write(cpu) < 0)
-				continue;
-
+		if (this_smartmax->cur_policy)
 			smartmax_update_min_max(this_smartmax, this_smartmax->cur_policy);
-			
-			unlock_policy_rwsem_write(cpu);
-		}
+
 	}
 }
 
@@ -1129,14 +1124,9 @@ static int cpufreq_smartmax_boost_task(void *data) {
 			if (!this_smartmax)
 				continue;
 
-			if (lock_policy_rwsem_write(cpu) < 0)
-				continue;
-
 			policy = this_smartmax->cur_policy;
-			if (!policy){
-				unlock_policy_rwsem_write(cpu);
+			if (!policy)
 				continue;
-			}
 
 			mutex_lock(&this_smartmax->timer_mutex);
 
@@ -1147,8 +1137,6 @@ static int cpufreq_smartmax_boost_task(void *data) {
 				this_smartmax->prev_cpu_idle = get_cpu_idle_time(cpu, &this_smartmax->prev_cpu_wall);
 			}
 			mutex_unlock(&this_smartmax->timer_mutex);
-
-			unlock_policy_rwsem_write(cpu);
 		}
 #endif
 

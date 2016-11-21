@@ -36,6 +36,9 @@ static int suspendsync = 1;
 static int suspendsync;
 #endif
 
+static void suspend_timeout(unsigned long data);
+static DEFINE_TIMER(suspend_wd, suspend_timeout, 0, 0);
+
 const char *const pm_states[PM_SUSPEND_MAX] = {
 #ifdef CONFIG_EARLYSUSPEND
 	[PM_SUSPEND_ON]		= "on",
@@ -45,6 +48,42 @@ const char *const pm_states[PM_SUSPEND_MAX] = {
 };
 
 static const struct platform_suspend_ops *suspend_ops;
+
+/**
+ *      suspend_timeout - suspend watchdog handler
+ *
+ *      Called when timed out in suspending.
+ *      There's not much we can do here to recover so
+ *      BUG() out for a crash-dump
+ *
+ */
+static void suspend_timeout(unsigned long data)
+{
+	struct task_struct *suspend_task = (struct task_struct *)data;
+	printk(KERN_EMERG "**** Suspend timeout\n");
+	if (suspend_task)
+		sched_show_task(suspend_task);
+	BUG();
+}
+
+/**
+ *      suspend_wdset - Sets up suspend watchdog timer.
+ *
+ */
+static void suspend_wdset(void)
+{
+	suspend_wd.data = (unsigned long)current;
+	mod_timer(&suspend_wd, jiffies + (HZ * 60));
+}
+
+/**
+ *      suspend_wdclr - clear suspend watchdog timer.
+ *
+ */
+static void suspend_wdclr(void)
+{
+	del_timer_sync(&suspend_wd);
+}
 
 /**
  * suspend_set_ops - Set the global suspend method table.
@@ -295,7 +334,9 @@ static int enter_state(suspend_state_t state)
 	}
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
+	suspend_wdset();
 	error = suspend_prepare();
+	suspend_wdclr();
 	if (error)
 		goto Unlock;
 
@@ -309,7 +350,9 @@ static int enter_state(suspend_state_t state)
 
  Finish:
 	pr_debug("PM: Finishing wakeup.\n");
+	suspend_wdset();
 	suspend_finish();
+	suspend_wdclr();
  Unlock:
 	mutex_unlock(&pm_mutex);
 	return error;
@@ -359,4 +402,5 @@ static int __init suspendsync_setup(char *str)
 	suspendsync = simple_strtoul(str, NULL, 0);
 	return 1;
 }
+
 __setup("suspendsync=", suspendsync_setup);

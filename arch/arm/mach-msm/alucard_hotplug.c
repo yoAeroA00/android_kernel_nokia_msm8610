@@ -68,6 +68,10 @@ static struct hotplug_tuners {
 	unsigned int hotplug_suspend;
 	bool suspended;
 	bool force_cpu_up;
+#else
+	unsigned int hotplug_suspend;
+	bool suspended;
+	bool force_cpu_up;
 #endif
 } hotplug_tuners_ins = {
 	.hotplug_sampling_rate = 100,
@@ -132,14 +136,21 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 	unsigned int cpu = 0;
 	unsigned int rq_avg = 0;
 	bool rq_avg_calc = true;
+#if defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+	bool force_up = hotplug_tuners_ins.force_cpu_up;
+#endif
 	int online_cpus;
 	cpumask_var_t cpus;
 
+#if defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	if (hotplug_tuners_ins.suspended) {
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit_sleep;
 		rq_avg_calc = false;
 	} else
 		upmaxcoreslimit = hotplug_tuners_ins.maxcoreslimit;
+#endif
 
 	/* get nr online cpus */
 	online_cpus = num_online_cpus();
@@ -192,8 +203,14 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 					if (!ret) {
 						online_cpus--;
 					}
+#if defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+			} else if (force_up == true || (online_cpus < min_cpus_online
+						&& upcpu < upmaxcoreslimit)) {
+#else
 			} else if (online_cpus < min_cpus_online
 						&& upcpu < upmaxcoreslimit) {
+#endif
 					if (cpu_is_offline(upcpu)) {
 						ret = cpu_up(upcpu);
 						if (!ret) {
@@ -271,13 +288,20 @@ static void __ref hotplug_work_fn(struct work_struct *work)
 				cpu_up(cpu);
 			}
 		}
+#if defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
+	if (force_up == true)
 		hotplug_tuners_ins.force_cpu_up = false;
+#else
+		hotplug_tuners_ins.force_cpu_up = false;
+#endif
 	}
 
 	queue_delayed_work_on(0, alucard_wq, &alucard_hotplug_work,
 				msecs_to_jiffies(hotplug_tuners_ins.hotplug_sampling_rate));
 }
 
+#if defined(CONFIG_POWERSUSPEND) || defined(CONFIG_HAS_EARLYSUSPEND)
 #ifdef CONFIG_POWERSUSPEND
 static void __alucard_hotplug_suspend(struct power_suspend *handler)
 #else
@@ -345,6 +369,75 @@ static int fb_notifier_callback(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 #endif
+#else
+#ifdef CONFIG_POWERSUSPEND
+static void __alucard_hotplug_suspend(struct power_suspend *handler)
+#else
+static void __alucard_hotplug_suspend(void)
+#endif
+{
+	if (hotplug_tuners_ins.hotplug_enable > 0
+				&& hotplug_tuners_ins.hotplug_suspend == 1 &&
+				hotplug_tuners_ins.suspended == false) {
+			hotplug_tuners_ins.suspended = true;
+			pr_info("Alucard HotPlug suspended.\n");
+	}
+}
+
+#ifdef CONFIG_POWERSUSPEND
+static void __ref __alucard_hotplug_resume(struct power_suspend *handler)
+#else
+static void __ref __alucard_hotplug_resume(void)
+#endif
+{
+	if (hotplug_tuners_ins.hotplug_enable > 0
+		&& hotplug_tuners_ins.suspended == true) {
+			hotplug_tuners_ins.suspended = false;
+			/* wake up everyone */
+			if (hotplug_tuners_ins.hotplug_suspend == 1)
+				hotplug_tuners_ins.force_cpu_up = true;
+			pr_info("Alucard HotPlug Resumed.\n");
+	}
+}
+
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend alucard_hotplug_power_suspend_driver = {
+	.suspend = __alucard_hotplug_suspend,
+	.resume = __alucard_hotplug_resume,
+};
+#else
+static int prev_fb = FB_BLANK_UNBLANK;
+
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK) {
+		blank = evdata->data;
+		switch (*blank) {
+			case FB_BLANK_UNBLANK:
+				if (prev_fb == FB_BLANK_POWERDOWN) {
+					/* display on */
+					__alucard_hotplug_resume();
+					prev_fb = FB_BLANK_UNBLANK;
+				}
+				break;
+			case FB_BLANK_POWERDOWN:
+				if (prev_fb == FB_BLANK_UNBLANK) {
+					/* display off */
+					__alucard_hotplug_suspend();
+					prev_fb = FB_BLANK_POWERDOWN;
+				}
+				break;
+		}
+	}
+
+	return NOTIFY_OK;
+}
+#endif
+#endif
 
 static int alucard_hotplug_callback(struct notifier_block *nb,
 			unsigned long action, void *data)
@@ -381,8 +474,14 @@ static int hotplug_start(void)
 		goto err;
 	}
 
+#if defined(CONFIG_POWERSUSPEND) || \
+	defined(CONFIG_HAS_EARLYSUSPEND)
 	hotplug_tuners_ins.suspended = false;
 	hotplug_tuners_ins.force_cpu_up = false;
+#else
+	hotplug_tuners_ins.suspended = false;
+	hotplug_tuners_ins.force_cpu_up = false;
+#endif
 
 	get_online_cpus();
 	register_hotcpu_notifier(&alucard_hotplug_nb);
@@ -402,6 +501,8 @@ static int hotplug_start(void)
 
 #ifdef CONFIG_POWERSUSPEND
 	register_power_suspend(&alucard_hotplug_power_suspend_driver);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	register_early_suspend(&alucard_hotplug_early_suspend_driver);
 #else
 	notif.notifier_call = fb_notifier_callback;
 	if (fb_register_client(&notif))
@@ -420,6 +521,8 @@ static void __ref hotplug_stop(void)
 
 #ifdef CONFIG_POWERSUSPEND
 	unregister_power_suspend(&alucard_hotplug_power_suspend_driver);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&alucard_hotplug_early_suspend_driver);
 #else
 	fb_unregister_client(&notif);
 	notif.notifier_call = NULL;
@@ -454,6 +557,8 @@ show_one(maxcoreslimit_sleep, maxcoreslimit_sleep);
 show_one(hp_io_is_busy, hp_io_is_busy);
 #if defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
+show_one(hotplug_suspend, hotplug_suspend);
+#else
 show_one(hotplug_suspend, hotplug_suspend);
 #endif
 
@@ -719,6 +824,8 @@ define_one_global_rw(hp_io_is_busy);
 #if defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
 define_one_global_rw(hotplug_suspend);
+#else
+define_one_global_rw(hotplug_suspend);
 #endif
 
 static struct attribute *alucard_hotplug_attributes[] = {
@@ -738,6 +845,8 @@ static struct attribute *alucard_hotplug_attributes[] = {
 	&hp_io_is_busy.attr,
 #if defined(CONFIG_POWERSUSPEND) || \
 	defined(CONFIG_HAS_EARLYSUSPEND)
+	&hotplug_suspend.attr,
+#else
 	&hotplug_suspend.attr,
 #endif
 	NULL

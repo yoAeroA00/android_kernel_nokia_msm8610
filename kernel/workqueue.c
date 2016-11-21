@@ -42,6 +42,7 @@
 #include <linux/lockdep.h>
 #include <linux/idr.h>
 #include <linux/bug.h>
+#include <linux/hashtable.h>
 #include <linux/moduleparam.h>
 
 #include "workqueue_sched.h"
@@ -1930,6 +1931,9 @@ __acquires(&gcwq->lock)
 		debug_show_held_locks(current);
 		BUG_ON(PANIC_CORRUPTION);
 		dump_stack();
+#ifdef CONFIG_WORKQUEUE_LEAK_PANIC
+		BUG();
+#endif
 	}
 
 	/*

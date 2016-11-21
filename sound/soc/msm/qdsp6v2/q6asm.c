@@ -306,6 +306,10 @@ static void config_debug_fs_init(void)
 		pr_err("debugfs_create_file failed\n");
 }
 #else
+int q6asm_mmap_apr_dereg(void)
+{
+	return 0;
+}
 static void config_debug_fs_write(struct audio_buffer *ab)
 {
 	return;
@@ -1021,6 +1025,12 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 
 	ac->port[dir].buf = buf;
 
+	/* check for integer overflow */
+	if ((bufcnt > 0) && ((INT_MAX / bufcnt) < bufsz)) {
+		pr_err("%s: integer overflow\n", __func__);
+		mutex_unlock(&ac->cmd_lock);
+		goto fail;
+	}
 	bytes_to_alloc = bufsz * bufcnt;
 
 	/* The size to allocate should be multiple of 4K bytes */
