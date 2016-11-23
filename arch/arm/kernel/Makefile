@@ -2,6 +2,8 @@
 # Makefile for the linux kernel.
 #
 
+KBUILD_CFLAGS	+=-O3
+
 CPPFLAGS_vmlinux.lds := -DTEXT_OFFSET=$(TEXT_OFFSET)
 AFLAGS_head.o        := -DTEXT_OFFSET=$(TEXT_OFFSET)
 
@@ -16,7 +18,7 @@ CFLAGS_REMOVE_return_address.o = -pg
 # Object file lists.
 
 obj-y		:= elf.o entry-armv.o entry-common.o irq.o opcodes.o \
-		   process.o ptrace.o return_address.o sched_clock.o \
+		   process.o ptrace.o return_address.o \
 		   setup.o signal.o stacktrace.o sys_arm.o time.o traps.o
 
 obj-$(CONFIG_DEPRECATED_PARAM_STRUCT) += compat.o
@@ -59,6 +61,7 @@ obj-$(CONFIG_KGDB)		+= kgdb.o
 obj-$(CONFIG_ARM_UNWIND)	+= unwind.o
 obj-$(CONFIG_HAVE_TCM)		+= tcm.o
 obj-$(CONFIG_OF)		+= devtree.o
+obj-$(CONFIG_BOOTINFO)		+= bootinfo.o
 obj-$(CONFIG_CRASH_DUMP)	+= crash_dump.o
 obj-$(CONFIG_SWP_EMULATE)	+= swp_emulate.o
 CFLAGS_swp_emulate.o		:= -Wa,-march=armv7-a

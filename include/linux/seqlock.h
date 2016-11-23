@@ -1,3 +1,4 @@
+
 #ifndef __LINUX_SEQLOCK_H
 #define __LINUX_SEQLOCK_H
 /*
@@ -29,6 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/preempt.h>
 #include <asm/processor.h>
+#include <asm/relaxed.h>
 
 typedef struct {
 	unsigned sequence;
@@ -141,9 +143,9 @@ static inline unsigned __read_seqcount_begin(const seqcount_t *s)
 	unsigned ret;
 
 repeat:
-	ret = ACCESS_ONCE(s->sequence);
+	ret = cpu_relaxed_read((volatile u32 *)&s->sequence);
 	if (unlikely(ret & 1)) {
-		cpu_relax();
+		cpu_read_relax();
 		goto repeat;
 	}
 	return ret;

@@ -357,11 +357,7 @@ static ssize_t state_show(struct kobject *kobj, struct kobj_attribute *attr,
 static suspend_state_t decode_state(const char *buf, size_t n)
 {
 #ifdef CONFIG_SUSPEND
-#ifdef CONFIG_EARLYSUSPEND
-	suspend_state_t state = PM_SUSPEND_ON;
-#else
 	suspend_state_t state = PM_SUSPEND_STANDBY;
-#endif
 	const char * const *s;
 #endif
 	char *p;
@@ -665,6 +661,9 @@ static int __init pm_init(void)
 	hrtimer_init(&tc_ev_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	tc_ev_timer.function = &tc_ev_stop;
 	tc_ev_processed = 1;
+
+	/* Disable VT switch */
+	pm_set_vt_switch(0);
 
 	power_kobj = kobject_create_and_add("power", NULL);
 	if (!power_kobj)

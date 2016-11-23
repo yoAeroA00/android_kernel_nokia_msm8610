@@ -185,7 +185,7 @@
 		qcom,buffer-type-tz-usage-map = <0x1 0x1>,
 						<0x7fe 0x2>;
 		qcom,hfi = "q6";
-		qcom,max-hw-load = <244800>; /* 1080p @ 30 * 1 */
+		qcom,max-hw-load = <352800>; /* 1080p @ 30 * 1 */
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&q6_domain_ns>;
@@ -304,7 +304,9 @@
 		qcom,sup-voltages = <2900 2900>;
 		qcom,bus-width = <8>;
 		qcom,nonremovable;
+		qcom,wakeup-on-idle;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+		qcom,cpu-dma-latency-us = <701>;
 
 		status = "disabled";
 	};
@@ -338,6 +340,7 @@
 		qcom,xpc;
 		qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
 		qcom,current-limit = <800>;
+		qcom,cpu-dma-latency-us = <701>;
 
 		status = "disabled";
 	};
@@ -351,6 +354,7 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <8>;
+		qcom,cpu-dma-latency-us = <701>;
 		status = "disabled";
 	};
 
@@ -363,6 +367,7 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <701>;
 		status = "disabled";
 	};
 
@@ -459,9 +464,11 @@
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <22000>;
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x6000>;
 	};
 
 	qcom,clock-a7@f9011050 {
@@ -491,11 +498,13 @@
 		reg = <0 4>;
 		compatible = "qcom,msm-cpufreq";
 		qcom,cpufreq-table =
-			<  300000  762 >,
-			<  384000  762 >,
-			<  600000 1525 >,
-			<  787200 1525 >,
-			<  998400 2540 >,
+			< 75000 762 >,
+			< 200000 762 >,
+			< 384000 762 >,
+			< 449600 1525 >,
+			< 600000 1525 >,
+			< 787200 1525 >,
+			< 998400 2540 >,
 			< 1190400 2540 >;
 	};
 
@@ -589,6 +598,7 @@
                 qcom,i2c-src-freq = <19200000>;
                 qcom,sda-gpio = <&msmgpio 10 0>;
                 qcom,scl-gpio = <&msmgpio 11 0>;
+                qcom,clk-ctl-xfer;
                 qcom,master-id = <86>;
 	};
 
@@ -879,8 +889,7 @@
 		qcom,core-control-mask = <0xe>;
 		qcom,hotplug-temp = <110>;
 		qcom,hotplug-temp-hysteresis = <20>;
-		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor5",
-				"tsens_tz_sensor5", "tsens_tz_sensor5";
+		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor5";
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&pm8110_s1_floor_corner>;
@@ -925,8 +934,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
 				<55 512 0 0>,
-				<55 512 120000 1200000>,
-				<55 512 393600 3936000>;
+				<55 512 1200000 120000>,
+				<55 512 3936000 393600>;
 	};
 
         qcom,msm-rng@f9bff000 {
@@ -984,6 +993,8 @@
 	qcom,tz-log@fe805720 {
 		compatible = "qcom,tz-log";
 		reg = <0x0fe805720 0x1000>;
+		qcom,memory-reservation-type = "EBI1";
+		qcom,memory-reservation-size = <0x1000>;
 	};
 
 	qcom,qcrypto@fd404000 {

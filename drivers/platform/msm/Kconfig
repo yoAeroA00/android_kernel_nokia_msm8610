@@ -113,6 +113,7 @@ config IPA
 	  for the IPA core.
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
+
 config MSM_AVTIMER
 	tristate "Avtimer Driver"
 	depends on ARCH_MSM8960

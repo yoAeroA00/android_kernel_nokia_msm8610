@@ -41,6 +41,7 @@
 #include <linux/cpu.h>
 #include <linux/notifier.h>
 #include <linux/rculist.h>
+#include "printk_interface.h"
 
 #include <asm/uaccess.h>
 
@@ -802,6 +803,10 @@ asmlinkage int printk(const char *fmt, ...)
 	uncached_logk_pc(LOGK_LOGBUF, caller, (void *)log_end);
 #endif
 
+// if printk mode is disabled, terminate instantly
+	if (printk_mode == 0)
+		return 0;
+
 #ifdef CONFIG_KGDB_KDB
 	if (unlikely(kdb_trap_printk)) {
 		va_start(args, fmt);
@@ -898,6 +903,10 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	char *p;
 	size_t plen;
 	char special;
+
+	// if printk mode is disabled, terminate instantly
+	if (printk_mode == 0)
+	return 0;
 
 	boot_delay_msec();
 	printk_delay();
@@ -1385,6 +1394,8 @@ again:
 	raw_spin_lock(&logbuf_lock);
 	if (con_start != log_end)
 		retry = 1;
+	else
+		retry = 0;
 	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 
 	if (retry && console_trylock())
@@ -1714,7 +1725,7 @@ late_initcall(printk_late_init);
 
 #if defined CONFIG_PRINTK
 
-int printk_sched(const char *fmt, ...)
+int printk_deferred(const char *fmt, ...)
 {
 	unsigned long flags;
 	va_list args;

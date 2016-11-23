@@ -12,6 +12,7 @@
 #include <linux/gfp.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
+#include <asm/relaxed.h>
 
 #ifdef CONFIG_USE_GENERIC_SMP_HELPERS
 static struct {
@@ -40,7 +41,33 @@ struct call_single_queue {
 	raw_spinlock_t		lock;
 };
 
+/* CPU mask indicating which CPUs to bring online during smp_init() */
+static bool have_boot_cpu_mask;
+static cpumask_var_t boot_cpu_mask;
+
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct call_single_queue, call_single_queue);
+
+#ifdef CONFIG_LOCKUP_IPI_CALL_WDT
+/*
+ * csd_lock_waiting_flag : per cpu flag.
+ * it's only used to indicate whether it's in csd_lock_waiting().
+ * Because when csd_lock_waiting() is invoked, 1) preemption will
+ * always be disabled;  2) not in irq context, it's safe to set or
+ * clear the flag directly.
+ */
+DEFINE_PER_CPU(int, csd_lock_waiting_flag);
+static inline void set_csd_lock_waiting_flag(void)
+{
+	__get_cpu_var(csd_lock_waiting_flag) = 1;
+}
+static inline void clear_csd_lock_waiting_flag(void)
+{
+	__get_cpu_var(csd_lock_waiting_flag) = 0;
+}
+#else
+static inline void set_csd_lock_waiting_flag(void) { }
+static inline void clear_csd_lock_waiting_flag(void) { }
+#endif
 
 static int
 hotplug_cfd(struct notifier_block *nfb, unsigned long action, void *hcpu)
@@ -99,8 +126,8 @@ void __init call_function_init(void)
  */
 static void csd_lock_wait(struct call_single_data *data)
 {
-	while (data->flags & CSD_FLAG_LOCK)
-		cpu_relax();
+	while (cpu_relaxed_read_short(&data->flags) & CSD_FLAG_LOCK)
+		cpu_read_relax();
 }
 
 static void csd_lock(struct call_single_data *data)
@@ -655,6 +682,19 @@ static int __init maxcpus(char *str)
 
 early_param("maxcpus", maxcpus);
 
+static int __init boot_cpus(char *str)
+{
+	alloc_bootmem_cpumask_var(&boot_cpu_mask);
+	if (cpulist_parse(str, boot_cpu_mask) < 0) {
+		pr_warn("SMP: Incorrect boot_cpus cpumask\n");
+		return -EINVAL;
+	}
+	have_boot_cpu_mask = true;
+	return 0;
+}
+
+early_param("boot_cpus", boot_cpus);
+
 /* Setup number of possible processor ids */
 int nr_cpu_ids __read_mostly = NR_CPUS;
 EXPORT_SYMBOL(nr_cpu_ids);
@@ -663,6 +703,21 @@ EXPORT_SYMBOL(nr_cpu_ids);
 void __init setup_nr_cpu_ids(void)
 {
 	nr_cpu_ids = find_last_bit(cpumask_bits(cpu_possible_mask),NR_CPUS) + 1;
+}
+
+/* Should the given CPU be booted during smp_init() ? */
+static inline bool boot_cpu(int cpu)
+{
+	if (!have_boot_cpu_mask)
+		return true;
+
+	return cpumask_test_cpu(cpu, boot_cpu_mask);
+}
+
+static inline void free_boot_cpu_mask(void)
+{
+	if (have_boot_cpu_mask)	/* Allocated from boot_cpus() */
+		free_bootmem_cpumask_var(boot_cpu_mask);
 }
 
 /* Called by boot processor to activate the rest. */
@@ -674,9 +729,11 @@ void __init smp_init(void)
 	for_each_present_cpu(cpu) {
 		if (num_online_cpus() >= setup_max_cpus)
 			break;
-		if (!cpu_online(cpu))
+		if (!cpu_online(cpu) && boot_cpu(cpu))
 			cpu_up(cpu);
 	}
+
+	free_boot_cpu_mask();
 
 	/* Any cleanup work */
 	printk(KERN_INFO "Brought up %ld CPUs\n", (long)num_online_cpus());

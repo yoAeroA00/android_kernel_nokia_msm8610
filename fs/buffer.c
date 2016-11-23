@@ -1194,7 +1194,7 @@ static struct buffer_head *__bread_slow(struct buffer_head *bh)
  * a local interrupt disable for that.
  */
 
-#define BH_LRU_SIZE	8
+#define BH_LRU_SIZE	16
 
 struct bh_lru {
 	struct buffer_head *bhs[BH_LRU_SIZE];
@@ -2926,6 +2926,9 @@ int submit_bh(int rw, struct buffer_head * bh)
 	 */
 	if (test_set_buffer_req(bh) && (rw & WRITE))
 		clear_buffer_write_io_error(bh);
+
+	if (buffer_meta(bh))
+		rw |= REQ_META;
 
 	/*
 	 * from here on down, it's all bio -- do the initial mapping,

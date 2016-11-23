@@ -67,7 +67,8 @@ void kgsl_pwrscale_wake(struct kgsl_device *device)
 
 	device->pwrscale.time = ktime_to_us(ktime_get());
 
-	device->pwrscale.next_governor_call = 0;
+	device->pwrscale.next_governor_call = jiffies +
+			msecs_to_jiffies(KGSL_GOVERNOR_CALL_INTERVAL);
 
 	/* to call devfreq_resume_device() from a kernel thread */
 	queue_work(device->pwrscale.devfreq_wq,
@@ -109,9 +110,6 @@ void kgsl_pwrscale_update(struct kgsl_device *device)
 
 	if (!device->pwrscale.enabled)
 		return;
-
-	if (device->pwrscale.next_governor_call == 0)
-		device->pwrscale.next_governor_call = jiffies;
 
 	if (time_before(jiffies, device->pwrscale.next_governor_call))
 		return;
@@ -416,11 +414,11 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	/* Let's start with 10 ms and tune in later */
 	profile->polling_ms = 10;
 
-	/* do not include the 'off' level or duplicate freq. levels */
-	for (i = 0; i < (pwr->num_pwrlevels - 1); i++)
+	/* do not include duplicate freq. levels */
+	for (i = 0; i < pwr->num_pwrlevels; i++)
 		pwrscale->freq_table[out++] = pwr->pwrlevels[i].gpu_freq;
 
-	profile->max_state = out;
+	profile->max_state = out - 1;
 	/* link storage array to the devfreq profile pointer */
 	profile->freq_table = pwrscale->freq_table;
 
@@ -466,12 +464,15 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	ret = sysfs_create_link(&device->dev->kobj,
 			&devfreq->dev.kobj, "devfreq");
 
-	pwrscale->devfreq_wq = create_freezable_workqueue("kgsl_devfreq_wq");
+	pwrscale->devfreq_wq = alloc_workqueue("kgsl_devfreq_wq", WQ_HIGHPRI |
+						WQ_UNBOUND | WQ_FREEZABLE |
+						WQ_MEM_RECLAIM, 0);
 	INIT_WORK(&pwrscale->devfreq_suspend_ws, do_devfreq_suspend);
 	INIT_WORK(&pwrscale->devfreq_resume_ws, do_devfreq_resume);
 	INIT_WORK(&pwrscale->devfreq_notify_ws, do_devfreq_notify);
 
-	pwrscale->next_governor_call = 0;
+	pwrscale->next_governor_call = jiffies +
+			msecs_to_jiffies(KGSL_GOVERNOR_CALL_INTERVAL);
 
 	return 0;
 }

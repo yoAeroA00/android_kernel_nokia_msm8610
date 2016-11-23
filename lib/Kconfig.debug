@@ -186,6 +186,33 @@ config HARDLOCKUP_DETECTOR
 	def_bool LOCKUP_DETECTOR && PERF_EVENTS && HAVE_PERF_EVENTS_NMI && \
 		 !HAVE_NMI_WATCHDOG
 
+config LOCKUP_IPI_CALL_WDT
+	bool "Trigger Watchdog Reset when Softlockup on IPI Call"
+	depends on LOCKUP_DETECTOR && USE_GENERIC_SMP_HELPERS
+	help
+	  Say Y here to enable the kernel to trigger watchdog reset when it
+	  detects softlockup happens during current cpu is waiting for ipi replying
+	  from other CPUs.
+
+	  Original softlockup logs for ipi call hang issue can't provide
+	  the backtrace on other CPUs. Since some machine may provide
+	  ramdump when watchdog happens, we can leverage it to find out the
+	  the other cpus' backtrace by initiating a watchdog reset
+	  when this kind of softlockup occurs.
+
+	  Say N if unsure.
+
+config WORKQUEUE_LEAK_PANIC
+        bool "Kernel panic when bug on workqueue leaked lock or atomic"
+        help
+          Say Y here to enable kernel panic when process one work in atomic
+          environment.
+
+          Original warning logs would not help us resolve the issue at the
+          first time. So, we prefer to stop and fix the issue before moving on.
+
+          Say N if unsure.
+
 config BOOTPARAM_HARDLOCKUP_PANIC
 	bool "Panic (Reboot) On Hard Lockups"
 	depends on LOCKUP_DETECTOR
@@ -424,6 +451,26 @@ config SLUB_STATS
 	  supports the determination of the most active slabs to figure
 	  out which slabs are relevant to a particular load.
 	  Try running: slabinfo -DA
+
+config SLQB_DEBUG
+	default y
+	bool "Enable SLQB debugging support"
+	  depends on SLQB
+
+config SLQB_DEBUG_ON
+	default n
+	bool "SLQB debugging on by default"
+	  depends on SLQB_DEBUG
+
+config SLQB_SYSFS
+	bool "Create SYSFS entries for slab caches"
+	default n
+	  depends on SLQB
+
+config SLQB_STATS
+	bool "Enable SLQB performance statistics"
+	default n
+	  depends on SLQB_SYSFS
 
 config DEBUG_KMEMLEAK
 	bool "Kernel memory leak detector"
@@ -717,7 +764,7 @@ config DEBUG_BUGVERBOSE
 	depends on BUG
 	depends on ARM || AVR32 || M32R || M68K || SPARC32 || SPARC64 || \
 		   FRV || SUPERH || GENERIC_BUG || BLACKFIN || MN10300 || TILE
-	default y
+	default n
 	help
 	  Say Y here to make BUG() panics output the file name and line number
 	  of the BUG call as well as the EIP and oops trace.  This aids
@@ -1083,7 +1130,7 @@ config FAULT_INJECTION
 config FAILSLAB
 	bool "Fault-injection capability for kmalloc"
 	depends on FAULT_INJECTION
-	depends on SLAB || SLUB
+	depends on SLAB || SLUB || SLQB
 	help
 	  Provide fault-injection capability for kmalloc.
 
@@ -1305,6 +1352,24 @@ config PANIC_ON_DATA_CORRUPTION
 	 Select this option to upgrade warnings for potentially
 	 recoverable data corruption scenarios to system-halting panics,
 	 for easier detection and debug.
+
+config DO_EXIT_WDOG
+	bool "Task exit watchdog"
+	help
+	 This feature runs a watchdog timer while do_exit() cleans up a task.
+	 If it doesn't complete in the specified time, then it will force a
+	 crash.  When this happens, we assume that one of the task cleanup
+	 routines is hopelessly stuck and the best course of action is to
+	 crash to recover functionality.  The original catalyst for this was
+	 exit_files() never returning due to a deadlock in the close path of a
+	 driver.  It might help (or hurt) in other cases as well.
+
+config DO_EXIT_WDOG_TIMEOUT
+	int "Timeout value for task exit watchdog"
+	default 900
+	depends on DO_EXIT_WDOG
+	help
+	  This is the value for the do_exit() watchdog timer in seconds.
 
 source "samples/Kconfig"
 

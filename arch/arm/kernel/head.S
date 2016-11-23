@@ -104,7 +104,7 @@ ENTRY(stext)
 	and	r3, r3, #0xf			@ extract VMSA support
 	cmp	r3, #5				@ long-descriptor translation table format?
  THUMB( it	lo )				@ force fixup-able long branch encoding
-	blo	__error_p			@ only classic page table format
+	blo	__error_lpae			@ only classic page table format
 #endif
 
 #ifndef CONFIG_XIP_KERNEL
@@ -404,10 +404,10 @@ __secondary_data:
  *  r13 = *virtual* address to jump to upon completion
  */
 __enable_mmu:
-#if defined(CONFIG_ALIGNMENT_TRAP) && __LINUX_ARM_ARCH__ < 6
-	orr	r0, r0, #CR_A
-#else
+#ifdef CONFIG_ALLOW_CPU_ALIGNMENT
 	bic	r0, r0, #CR_A
+#else
+	orr r0, r0, #CR_A
 #endif
 #ifdef CONFIG_CPU_DCACHE_DISABLE
 	bic	r0, r0, #CR_C

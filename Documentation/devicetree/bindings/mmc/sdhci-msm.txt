@@ -51,6 +51,10 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
+				"SDR104_1p8v" - indicates that host can support SDR104 at 1.8v.
+				"SDR50_1p8v" - indicates that host can support SDR50 at 1.8v.
+				"SDR25_1p8v" - indicates that host can support SDR25 at 1.8v.
+				"SDR12_1p8v" - indicates that host can support SDR12 at 1.8v.
 	- qcom,cpu-dma-latency-us: specifies acceptable DMA latency in microseconds. There is
 				   no default value that the driver assumes if this property
 				   is not specified. So if this property is not specified,
@@ -87,6 +91,9 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,msm-bus,active-only
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
+
+	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
+	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
 
 Example:
 

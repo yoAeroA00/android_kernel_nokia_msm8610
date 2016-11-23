@@ -332,8 +332,13 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		struct mdss_panel_info *pinfo;
 
 		pinfo = &mixer->ctl->panel_data->panel_info;
+	if (pinfo->type == MIPI_VIDEO_PANEL) {
+		fps = pinfo->panel_max_fps;
+		v_total = pinfo->panel_max_vtotal;
+	} else {
 		fps = mdss_panel_get_framerate(pinfo);
 		v_total = mdss_panel_get_vtotal(pinfo);
+	}
 		xres = pinfo->xres;
 		is_fbc = pinfo->fbc.enabled;
 	} else {

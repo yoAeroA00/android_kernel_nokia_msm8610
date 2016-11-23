@@ -22,16 +22,19 @@
 *.lst
 *.symtypes
 *.order
-modules.builtin
 *.elf
 *.bin
 *.gz
 *.bz2
 *.lzma
 *.xz
+*.lz4
 *.lzo
 *.patch
 *.gcno
+modules.builtin
+Module.symvers
+*.dwo
 
 #
 # Top-level generic files

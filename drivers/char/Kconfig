@@ -4,6 +4,13 @@
 
 menu "Character devices"
 
+config MISC_DYNAMIC_MINORS
+	int "misc device dynamic minors"
+	default "96"
+	help
+	  Set the misc device dynamic minors which will be used by the MISC
+	  char device drivers.
+
 source "drivers/tty/Kconfig"
 
 config DEVMEM
@@ -262,6 +269,19 @@ config NWFLASH
 	  If you're not sure, say N.
 
 source "drivers/char/hw_random/Kconfig"
+
+config FRANDOM
+	tristate "FRANDOM Support Replacing DEFAULT RANDOM"
+	default y
+	---help---
+	  Frandom is a Linux kernel random number generator, 
+	  which is 10-50 times faster than what you get from Linux'
+	  built-in (/dev/urandom.orig). And it uses very little
+	  (/dev/random) or none (/dev/urandom) of the kernel's
+	  entropy pool, so it is very useful for applications that
+	  require a handy source for lots of random data.
+
+	  If unsure, say Y.
 
 config NVRAM
 	tristate "/dev/nvram support"

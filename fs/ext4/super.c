@@ -1897,8 +1897,8 @@ static int ext4_fill_flex_info(struct super_block *sb)
 		flex_group = ext4_flex_group(sbi, i);
 		atomic_add(ext4_free_inodes_count(sb, gdp),
 			   &sbi->s_flex_groups[flex_group].free_inodes);
-		atomic_add(ext4_free_group_clusters(sb, gdp),
-			   &sbi->s_flex_groups[flex_group].free_clusters);
+		atomic64_add(ext4_free_group_clusters(sb, gdp),
+			     &sbi->s_flex_groups[flex_group].free_clusters);
 		atomic_add(ext4_used_dirs_count(sb, gdp),
 			   &sbi->s_flex_groups[flex_group].used_dirs);
 	}
@@ -2862,7 +2862,7 @@ static struct ext4_li_request *ext4_li_request_new(struct super_block *sb,
 	 * spread the inode table initialization requests
 	 * better.
 	 */
-	get_random_bytes(&rnd, sizeof(rnd));
+	erandom_get_random_bytes((char *)&rnd, (size_t)sizeof(rnd));
 	elr->lr_next_sched = jiffies + (unsigned long)rnd %
 			     (EXT4_DEF_LI_MAX_START_DELAY * HZ);
 
@@ -3413,7 +3413,7 @@ static int ext4_fill_super(struct super_block *sb, void *data, int silent)
 		}
 
 	sbi->s_gdb_count = db_count;
-	get_random_bytes(&sbi->s_next_generation, sizeof(u32));
+	erandom_get_random_bytes((char *)&sbi->s_next_generation, sizeof(u32));
 	spin_lock_init(&sbi->s_next_gen_lock);
 
 	init_timer(&sbi->s_err_report);
@@ -4423,16 +4423,16 @@ restore_opts:
 /*
  * Note: calculating the overhead so we can be compatible with
  * historical BSD practice is quite difficult in the face of
- * clusters/bigalloc.  This is because multiple metadata blocks from
+ * clusters/bigalloc. This is because multiple metadata blocks from
  * different block group can end up in the same allocation cluster.
  * Calculating the exact overhead in the face of clustered allocation
  * requires either O(all block bitmaps) in memory or O(number of block
- * groups**2) in time.  We will still calculate the superblock for
+ * groups**2) in time. We will still calculate the superblock for
  * older file systems --- and if we come across with a bigalloc file
  * system with zero in s_overhead_clusters the estimate will be close to
  * correct especially for very large cluster sizes --- but for newer
  * file systems, it's better to calculate this figure once at mkfs
- * time, and store it in the superblock.  If the superblock value is
+ * time, and store it in the superblock. If the superblock value is
  * present (even for non-bigalloc file systems), we will use it.
  */
 static int ext4_statfs(struct dentry *dentry, struct kstatfs *buf)
@@ -4453,7 +4453,7 @@ static int ext4_statfs(struct dentry *dentry, struct kstatfs *buf)
 		ext4_fsblk_t overhead = 0;
 
 		/*
-		 * Compute the overhead (FS structures).  This is constant
+		 * Compute the overhead (FS structures). This is constant
 		 * for a given filesystem unless the number of block groups
 		 * changes so we cache the previous value until it does.
 		 */

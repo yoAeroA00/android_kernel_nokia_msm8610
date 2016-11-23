@@ -204,8 +204,12 @@ static char * const zone_names[MAX_NR_ZONES] = {
  * allocations below this point, only high priority ones. Automatically
  * tuned according to the amount of memory in the system.
  */
-int min_free_kbytes = 1024;
-int min_free_order_shift = 1;
+int min_free_kbytes = 4096;
+int min_free_normal_offset[2] = {
+	 0,
+	 0,
+};
+int min_free_order_shift = 4;
 
 /*
  * Extra memory for the system to try freeing. Used to temporarily
@@ -657,6 +661,8 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 	int migratetype = 0;
 	int batch_free = 0;
 	int to_free = count;
+	int free = 0;
+	int cma_free = 0;
 	int mt = 0;
 
 	spin_lock(&zone->lock);
@@ -687,17 +693,23 @@ static void free_pcppages_bulk(struct zone *zone, int count,
 		do {
 			page = list_entry(list->prev, struct page, lru);
 			mt = get_pageblock_migratetype(page);
+			if (likely(mt != MIGRATE_ISOLATE))
+			mt = page_private(page);
+
 			/* must delete as __free_one_page list manipulates */
 			list_del(&page->lru);
 			/* MIGRATE_MOVABLE list may include MIGRATE_RESERVEs */
-			__free_one_page(page, zone, 0, page_private(page));
-			trace_mm_page_pcpu_drain(page, 0, page_private(page));
-			if (is_migrate_cma(mt))
-				__mod_zone_page_state(zone,
-				NR_FREE_CMA_PAGES, 1);
+			__free_one_page(page, zone, 0, mt);
+			trace_mm_page_pcpu_drain(page, 0, mt);
+			if (likely(mt != MIGRATE_ISOLATE)) {
+				free++;
+				if (is_migrate_cma(mt))
+					cma_free++;
+			}
 		} while (--to_free && --batch_free && !list_empty(list));
 	}
-	__mod_zone_page_state(zone, NR_FREE_PAGES, count);
+	__mod_zone_page_state(zone, NR_FREE_PAGES, free);
+	__mod_zone_page_state(zone, NR_FREE_CMA_PAGES, cma_free);
 	spin_unlock(&zone->lock);
 }
 
@@ -5236,10 +5248,22 @@ static void __setup_per_zone_wmarks(void)
 			zone->watermark[WMARK_MIN] = min;
 		}
 
-		zone->watermark[WMARK_LOW] = min_wmark_pages(zone) +
-                                        low + (min >> 2);
-                zone->watermark[WMARK_HIGH] = min_wmark_pages(zone) +
-                                        low + (min >> 1);
+		if (is_normal(zone) &&
+			min_free_normal_offset[0] != 0 &&
+			min_free_normal_offset[1] != 0 &&
+			min_free_normal_offset[0] < min_free_normal_offset[1]) {
+
+			zone->watermark[WMARK_LOW]  = min_wmark_pages(zone) +
+				(min_free_normal_offset[0] >> (PAGE_SHIFT - 10));
+			zone->watermark[WMARK_HIGH] = min_wmark_pages(zone) +
+				(min_free_normal_offset[1] >> (PAGE_SHIFT - 10));
+
+		} else {
+			zone->watermark[WMARK_LOW] = min_wmark_pages(zone) +
+                                 low + (min >> 2);
+			zone->watermark[WMARK_HIGH] = min_wmark_pages(zone) +
+                                 low + (min >> 1);
+		}
 
 		setup_zone_migrate_reserve(zone);
 		spin_unlock_irqrestore(&zone->lock, flags);
@@ -5362,6 +5386,21 @@ int min_free_kbytes_sysctl_handler(ctl_table *table, int write,
 		setup_per_zone_wmarks();
 	return 0;
 }
+
+/*
+ * min_free_normal_offset_sysctl_handler - just a wrapper around proc_dointvec()
+ *	so that we can call setup_per_zone_wmarks() whenever
+ *	min_free_normal_offset changes.
+ */
+int min_free_normal_offset_sysctl_handler(ctl_table *table, int write,
+	void __user *buffer, size_t *length, loff_t *ppos)
+{
+	proc_dointvec_minmax(table, write, buffer, length, ppos);
+	if (write)
+		setup_per_zone_wmarks();
+	return 0;
+}
+
 
 #ifdef CONFIG_NUMA
 int sysctl_min_unmapped_ratio_sysctl_handler(ctl_table *table, int write,

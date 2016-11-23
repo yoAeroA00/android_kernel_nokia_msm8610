@@ -23,9 +23,7 @@
 
                         cy,easy_wakeup_gesture = <3>;
                         cy,btn_keys = <158     /* KEY_BACK */
-                                       172     /* KEY_HOMEPAGE */
-                                       158     /* KEY_BACK */
-                                       158>;   /* KEY_BACK */
+                                       172>;   /* KEY_HOMEPAGE */
 
                         cy,btn_keys-tag = <0>;
 

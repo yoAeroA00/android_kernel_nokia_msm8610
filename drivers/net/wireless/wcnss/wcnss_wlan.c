@@ -1123,6 +1123,13 @@ static struct platform_driver wcnss_ctrl_driver = {
 	.remove	= __devexit_p(wcnss_ctrl_remove),
 };
 
+void wcnss_get_monotonic_boottime(struct timespec *ts)
+{
+	get_monotonic_boottime(ts);
+}
+EXPORT_SYMBOL(wcnss_get_monotonic_boottime);
+
+
 struct device *wcnss_wlan_get_device(void)
 {
 	if (penv && penv->pdev && penv->smd_channel_ready)
@@ -2583,7 +2590,7 @@ static ssize_t wcnss_wlan_write(struct file *fp, const char __user
 		return -EFAULT;
 
 	if ((UINT32_MAX - count < penv->user_cal_rcvd) ||
-	     MAX_CALIBRATED_DATA_SIZE < count + penv->user_cal_rcvd) {
+	  	(penv->user_cal_exp_size < count + penv->user_cal_rcvd)) {
 		pr_err(DEVICE " invalid size to write %d\n", count +
 				penv->user_cal_rcvd);
 		rc = -ENOMEM;

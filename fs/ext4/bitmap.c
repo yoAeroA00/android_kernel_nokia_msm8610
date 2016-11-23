@@ -27,5 +27,4 @@ unsigned int ext4_count_free(struct buffer_head *map, unsigned int numchars)
 	return sum;
 }
 
-#endif  /*  EXT4FS_DEBUG  */
-
+#endif /* EXT4FS_DEBUG */

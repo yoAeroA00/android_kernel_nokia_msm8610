@@ -4,7 +4,7 @@
  *  Copyright (C)  2001 Russell King
  *            (C)  2003 Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>.
  *                      Jun Nakajima <jun.nakajima@intel.com>
- *            (c)  2013 The Linux Foundation. All rights reserved.
+ *            (c)  2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -33,15 +33,15 @@
  * It helps to keep variable names smaller, simpler
  */
 
-#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
-#define DEF_FREQUENCY_UP_THRESHOLD		(80)
+#define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(26)
+#define DEF_FREQUENCY_UP_THRESHOLD		(63)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(90)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
-#define MIN_FREQUENCY_UP_THRESHOLD		(11)
-#define MAX_FREQUENCY_UP_THRESHOLD		(100)
+#define MIN_FREQUENCY_UP_THRESHOLD		(10)
+#define MAX_FREQUENCY_UP_THRESHOLD		(98)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
 
 /*
@@ -108,6 +108,7 @@ struct cpu_dbs_info_s {
 	struct task_struct *sync_thread;
 	wait_queue_head_t sync_wq;
 	atomic_t src_sync_cpu;
+	atomic_t being_woken;
 	atomic_t sync_enabled;
 };
 static DEFINE_PER_CPU(struct cpu_dbs_info_s, od_cpu_dbs_info);
@@ -768,10 +769,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	/*
 	 * Every sampling_rate, we check, if current idle time is less
-	 * than 20% (default), then we try to increase frequency
+	 * than 37% (default), then we try to increase frequency
 	 * Every sampling_rate, we look for a the lowest
 	 * frequency which can sustain the load while keeping idle time over
-	 * 30%. If such a frequency exist, we try to decrease to this frequency.
+	 * 63%. If such a frequency exist, we try to decrease to this frequency.
 	 *
 	 * Any frequency increase takes it to the maximum frequency.
 	 * Frequency reduction happens at minimum steps of
@@ -1087,7 +1088,16 @@ static int dbs_migration_notify(struct notifier_block *nb,
 		&per_cpu(od_cpu_dbs_info, target_cpu);
 
 	atomic_set(&target_dbs_info->src_sync_cpu, (int)arg);
-	wake_up(&target_dbs_info->sync_wq);
+	/*
+	* Avoid issuing recursive wakeup call, as sync thread itself could be
+	* seen as migrating triggering this notification. Note that sync thread
+	* of a cpu could be running for a short while with its affinity broken
+	* because of CPU hotplug.
+	*/
+	if (!atomic_cmpxchg(&target_dbs_info->being_woken, 0, 1)) {
+		wake_up(&target_dbs_info->sync_wq);
+		atomic_set(&target_dbs_info->being_woken, 0);
+	}
 
 	return NOTIFY_OK;
 }
@@ -1112,7 +1122,7 @@ static int dbs_sync_thread(void *data)
 	this_dbs_info = &per_cpu(od_cpu_dbs_info, cpu);
 
 	while (1) {
-		wait_event(this_dbs_info->sync_wq,
+		wait_event_interruptible(this_dbs_info->sync_wq,
 			   sync_pending(this_dbs_info) ||
 			   kthread_should_stop());
 
@@ -1442,6 +1452,7 @@ static int __init cpufreq_gov_dbs_init(void)
 		dbs_work->cpu = i;
 
 		atomic_set(&this_dbs_info->src_sync_cpu, -1);
+		atomic_set(&this_dbs_info->being_woken, 0);
 		init_waitqueue_head(&this_dbs_info->sync_wq);
 
 		this_dbs_info->sync_thread = kthread_run(dbs_sync_thread,
