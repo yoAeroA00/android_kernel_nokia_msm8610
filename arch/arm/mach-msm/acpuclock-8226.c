@@ -50,6 +50,7 @@ static struct msm_bus_paths bw_level_tbl_8610[] = {
 	[3] =  BW_MBPS(762), /* At least 100 MHz on bus. */
 	[4] = BW_MBPS(1525), /* At least 200 MHz on bus. */
 	[5] = BW_MBPS(2540), /* At least 333 MHz on bus. */
+	[6] = BW_MBPS(2789), /* At least 366 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -113,6 +114,39 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p6[] = {
 	{ 0 }
 };
 
+#ifdef CONFIG_USERSPACE_CPU_VOLTAGE_CONTROL
+static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
+#ifdef CONFIG_CPU_UNDERCLOCK
+	{ 1,   75000, ACPUPLL, 5, 2,   1140000,  1140000, 3 },
+	{ 1,  200000, PLL0,    4, 2,   1140000,    1140000, 3 },
+#else
+	{ 1,  300000, PLL0,    4, 2,   1140000,    1140000, 3 },
+#endif
+#ifdef CONFIG_CPU_OVERCLOCK
+	{ 1,  384000, ACPUPLL, 5, 2,   1140000,    1140000, 3 },
+#else
+	{ 1,  384000, ACPUPLL, 5, 2,   1140000,    1140000, 4 },
+#endif
+#ifdef CONFIG_CPU_UNDERCLOCK
+	{ 1,  499200, ACPUPLL, 5, 0,   1140000, 1140000, 4 },
+#endif
+#ifdef CONFIG_CPU_OVERCLOCK
+	{ 1,  600000, PLL0,    4, 0,   1150000, 1150000, 4 },
+#else
+	{ 1,  600000, PLL0,    4, 0,   1150000, 1150000, 5 },
+#endif
+	{ 1,  787200, ACPUPLL, 5, 0,   1150000, 1150000, 5 },
+#ifdef CONFIG_CPU_OVERCLOCK
+	{ 1,  998400, ACPUPLL, 5, 0,   1275000,  1275000, 5 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+	{ 1, 1305600, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+#else
+	{ 1,  998400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+#endif
+	{ 0 }
+};
+#else
 static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 #ifdef CONFIG_CPU_UNDERCLOCK
 	{ 1,   75000, ACPUPLL, 5, 2,   CPR_CORNER_2,  0, 3 },
@@ -120,19 +154,31 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 #else
 	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_2,    0, 3 },
 #endif
+#ifdef CONFIG_CPU_OVERCLOCK
 	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_2,    0, 3 },
+#else
+	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_2,    0, 4 },
+#endif
 #ifdef CONFIG_CPU_UNDERCLOCK
 	{ 1,  499200, ACPUPLL, 5, 0,   CPR_CORNER_2, 0, 4 },
 #endif
-	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_4, 0, 4 },
-	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_4, 0, 4 },
-	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 5 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 5 },
 #ifdef CONFIG_CPU_OVERCLOCK
-	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 5 },
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_4, 0, 4 },
+#else
+	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_4, 0, 5 },
+#endif
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_4, 0, 5 },
+#ifdef CONFIG_CPU_OVERCLOCK
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 5 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
+	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
+#else
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
 #endif
 	{ 0 }
 };
+#endif
 
 static struct clkctl_acpu_speed *pvs_tables_8226[NUM_SPEED_BIN] = {
 	[0] = acpu_freq_tbl_8226_1p2,
@@ -147,8 +193,13 @@ static struct clkctl_acpu_speed *pvs_tables_8226[NUM_SPEED_BIN] = {
 static struct acpuclk_drv_data drv_data = {
 	.freq_tbl = acpu_freq_tbl_8226_1p1,
 	.pvs_tables = pvs_tables_8226,
+	.current_speed = &(struct clkctl_acpu_speed){ 0 },
 	.bus_scale = &bus_client_pdata,
+#ifdef CONFIG_USERSPACE_CPU_VOLTAGE_CONTROL
+	.vdd_max_cpu = 1275000,
+#else
 	.vdd_max_cpu = CPR_CORNER_12,
+#endif
 	.src_clocks = {
 		[PLL0].name = "gpll0",
 		[ACPUPLL].name = "a7sspll",

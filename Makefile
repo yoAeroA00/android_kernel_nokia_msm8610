@@ -10,7 +10,7 @@ NAME = Saber-toothed Squirrel
 # Comments in this file are targeted only to the developer, do not
 # expect to learn how to build the kernel reading this file.
 
-YOVERSION = _PerfEDI
+YOVERSION = _PureEDI
 YONAME = Performance Edition
 EXTRAVERSION := $(EXTRAVERSION)$(YOVERSION)
 

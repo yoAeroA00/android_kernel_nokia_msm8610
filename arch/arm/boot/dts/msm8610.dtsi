@@ -482,6 +482,10 @@
 			< 787200000 2>,
 			<1190400000 3>;
 
+		/*
+		 * If Userspace Voltage Control is disabled, change this to
+		 * <&apc_vreg_corner>; or if enabled, change this to <&pm8110_s2>;
+		 */
 		cpu-vdd-supply = <&apc_vreg_corner>;
 	};
 
@@ -491,7 +495,8 @@
 		qcom,bw-tbl =
 			<  762 /* 100 MHz */ >,
 			< 1525 /* 200 MHz */ >,
-			< 2540 /* 333 MHz */ >;
+			< 2540 /* 333 MHz */ >,
+			< 2789 /* 366 MHz */ >;
 	};
 
 	qcom,msm-cpufreq@0 {
@@ -500,12 +505,12 @@
 		qcom,cpufreq-table =
 			< 75000 762 >,
 			< 200000 762 >,
-			< 384000 762 >,
+			< 384000 1525 >,
 			< 449600 1525 >,
-			< 600000 1525 >,
-			< 787200 1525 >,
-			< 998400 2540 >,
-			< 1190400 2540 >;
+			< 600000 2540 >,
+			< 787200 2540 >,
+			< 998400 2789 >,
+			< 1190400 2789 >;
 	};
 
 	spmi_bus: qcom,spmi@fc4c0000 {
@@ -880,11 +885,11 @@
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <5>;
 		qcom,poll-ms = <250>;
-		qcom,limit-temp = <60>;
+		qcom,limit-temp = <70>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
 		qcom,freq-control-mask = <0xf>;
-		qcom,core-limit-temp = <80>;
+		qcom,core-limit-temp = <75>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
 		qcom,hotplug-temp = <110>;

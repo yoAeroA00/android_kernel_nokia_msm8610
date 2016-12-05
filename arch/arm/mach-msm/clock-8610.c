@@ -443,6 +443,34 @@ static int vdd_corner[] = {
 	RPM_REGULATOR_CORNER_SUPER_TURBO,	/* VDD_DIG_HIGH */
 };
 
+#ifdef CONFIG_USERSPACE_GPU_VOLTAGE_CONTROL
+
+#define GPU_MIN_VDD 800
+#define GPU_MAX_VDD 1200
+
+ssize_t get_gpu_vdd_levels_str(char *buf)
+{
+	int i, len = 0;
+
+	if (buf) {
+		for (i = 1; i <= 3; i++) {
+			len += sprintf(buf + len, "%i mV\n", vdd_corner[i]/1000);
+		}
+	}
+	return len;
+}
+
+void set_gpu_vdd_levels(int uv_tbl[])
+{
+	int i;
+	for (i = 1; i <= 3; i++)
+	{
+	vdd_corner[i] = (min(max(uv_tbl[i - 1],
+			    GPU_MIN_VDD), GPU_MAX_VDD))*1000;
+	}
+}
+#endif
+
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 #define RPM_MISC_CLK_TYPE	0x306b6c63
@@ -560,7 +588,7 @@ static struct pll_freq_tbl apcs_pll_freq[] = {
 	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
 #ifdef CONFIG_CPU_OVERCLOCK
-	F_APCS_PLL(1305600000, 68, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1401600000, 73, 0x0, 0x1, 0x0, 0x0, 0x0),
 #endif
 	PLL_F_END
 };
@@ -592,6 +620,11 @@ static struct pll_clk a7sspll = {
 		},
 		.num_fmax = VDD_SR2_PLL_NUM,
 		CLK_INIT(a7sspll.c),
+		/*
+		 * Need to skip handoff of the acpu pll to avoid
+		 * turning off the pll when the cpu is using it
+		 */
+		.flags = CLKFLAG_SKIP_HANDOFF,
 	},
 };
 
@@ -1689,7 +1722,7 @@ static struct rcg_clk gfx3d_clk_src = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
 #ifdef CONFIG_GPU_CLOCKMOD
-		VDD_DIG_FMAX_MAP3(LOW, 180000000, NOMINAL, 380000000, HIGH,
+		VDD_DIG_FMAX_MAP3(LOW, 100000000, NOMINAL, 280000000, HIGH,
 					480000000),
 #else
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 300000000, HIGH,

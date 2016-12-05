@@ -5874,7 +5874,6 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
-
 	wcd9xxx_ssr_register(control, tapan_device_down,
 			     tapan_post_reset_cb, (void *)codec);
 

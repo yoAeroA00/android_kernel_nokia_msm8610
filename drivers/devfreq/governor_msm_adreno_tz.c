@@ -19,7 +19,6 @@
 #include <linux/io.h>
 #include <linux/ftrace.h>
 #include <linux/msm_adreno_devfreq.h>
-#include <linux/state_notifier.h>
 #include <mach/scm.h>
 #include "governor.h"
 #ifdef CONFIG_ADRENO_IDLER
@@ -53,9 +52,6 @@ static DEFINE_SPINLOCK(tz_lock);
 
 #define DEVFREQ_ADRENO_TZ	"msm-adreno-tz"
 #define TAG "msm_adreno_tz: "
-
-/* Boolean to detect if pm has entered suspend mode */
-static bool suspended;
 
 static unsigned int tz_target = TARGET;
 static unsigned int tz_cap = CAP;
@@ -100,7 +96,10 @@ extern int simple_gpu_active;
 extern int simple_gpu_algorithm(int level,
 			       struct devfreq_msm_adreno_tz_data *priv);
 #endif
-
+#ifdef CONFIG_ADRENO_IDLER
+extern int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
+unsigned long *freq);
+#endif
 static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 				u32 *flag)
 {
@@ -122,25 +121,15 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 		pr_err(TAG "get_status failed %d\n", result);
 		return result;
 	}
-	
+
 	/* Prevent overflow */
 	if (stats.busy_time >= (1 << 24) || stats.total_time >= (1 << 24)) {
 		stats.busy_time >>= 7;
 		stats.total_time >>= 7;
 	}
 
-
 	*freq = stats.current_frequency;
 	*flag = 0;
-
-	/*
-	 * Force to use & record as min freq when system has
-	 * entered pm-suspend or screen-off state.
-	 */
-	if (suspended || state_suspended) {
-		*freq = devfreq->profile->freq_table[devfreq->profile->max_state - 1];
-		return 0;
-	}
 
 #ifdef CONFIG_ADRENO_IDLER
 	if (adreno_idler_active &&
@@ -282,11 +271,6 @@ static int tz_start(struct devfreq *devfreq)
 	unsigned int t1, t2 = 2 * HIST;
 	int i, out, ret;
 
-	if (devfreq->data == NULL) {
-		pr_err(TAG "data is required for this governor\n");
-		return -EINVAL;
-	}
-
 	priv = devfreq->data;
 	priv->nb.notifier_call = tz_notify;
 
@@ -332,29 +316,25 @@ static int tz_stop(struct devfreq *devfreq)
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 
 	kgsl_devfreq_del_notifier(devfreq->dev.parent, &priv->nb);
+	/* leaving the governor and cleaning the pointer to private data */
+	devfreq->data = NULL;
 	return 0;
 }
-
 
 static int tz_resume(struct devfreq *devfreq)
 {
 	struct devfreq_dev_profile *profile = devfreq->profile;
 	unsigned long freq;
 
-	suspended = false;
-
 	freq = profile->initial_freq;
 
-	return profile->target(devfreq->dev.parent, &freq, 0);
+	return profile->target(devfreq->dev.parent, &freq,
+				DEVFREQ_FLAG_LEAST_UPPER_BOUND);
 }
 
 static int tz_suspend(struct devfreq *devfreq)
 {
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
-	struct devfreq_dev_profile *profile = devfreq->profile;
-	unsigned long freq;
-
-	suspended = true;
 
 	__secure_tz_entry2(TZ_RESET_ID, 0, 0);
 
@@ -363,10 +343,7 @@ static int tz_suspend(struct devfreq *devfreq)
 	priv->bus.total_time = 0;
 	priv->bus.gpu_time = 0;
 	priv->bus.ram_time = 0;
-
-	freq = profile->freq_table[profile->max_state - 1];
-
-	return profile->target(devfreq->dev.parent, &freq, 0);
+	return 0;
 }
 
 static ssize_t adreno_tz_target_show(struct kobject *kobj,

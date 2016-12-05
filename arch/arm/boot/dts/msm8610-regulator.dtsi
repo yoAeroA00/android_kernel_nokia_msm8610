@@ -18,7 +18,7 @@
 			compatible = "qcom,spm-regulator";
 			regulator-name = "8110_s2";
 			reg = <0x1700 0x100>;
-			regulator-min-microvolt = <900000>;
+			regulator-min-microvolt = <600000>;
 			regulator-max-microvolt = <1350000>;
 			qcom,mode = "auto";
 		};
