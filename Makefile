@@ -260,10 +260,8 @@ HOSTCXXFLAGS = -pipe -DNDEBUG -Ofast -fgcse-las
 
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
 # More Graphite
-# HOSTCFLAGS   += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
-# HOSTCXXFLAGS += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
-HOSTCFLAGS   += -fgraphite -floop-nest-optimize -floop-flatten
-HOSTCXXFLAGS += -fgraphite -floop-nest-optimize -floop-flatten
+HOSTCFLAGS   += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
+HOSTCXXFLAGS += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
 endif
 
 # Decide whether to build built-in, modular, or both.
@@ -375,8 +373,7 @@ endif
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
-# GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block
-GPEFLAGS	= -fgraphite -floop-nest-optimize -floop-flatten
+GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block
 YOFLAGS		= -Ofast -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -floop-nest-optimize -fno-delete-null-pointer-checks -ftree-loop-distribute-patterns -ftree-loop-distribute-patterns -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89 $(GPEFLAGS)
 else
 YOFLAGS		= -Ofast -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -floop-nest-optimize -fno-delete-null-pointer-checks -ftree-loop-distribute-patterns -ftree-loop-distribute-patterns -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89

@@ -30,7 +30,7 @@
 
 #define FAST_CHARGE_VERSION	"version 1.0 by Paul Reioux"
 
-int force_fast_charge = 1;
+int force_fast_charge;
 int fast_charge_level = FAST_CHARGE_1250;
 
 /* sysfs interface for "force_fast_charge" */
