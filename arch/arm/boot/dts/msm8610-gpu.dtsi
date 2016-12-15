@@ -22,7 +22,7 @@
 
 		qcom,chipid = <0x03000520>;
 
-		qcom,initial-pwrlevel = <1>;
+		qcom,initial-pwrlevel = <2>;
 
 		qcom,idle-timeout = <80>; /* msec */
 		qcom,strtstp-sleepwake;
@@ -36,7 +36,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<26 512 0 0>,       /* 0.   Off   */
-			<26 512 0 533333>,  /* 1. 100 MHz */
+			<26 512 0 600000>,  /* 1. 100 MHz */
 			<26 512 0 959940>,  /* 1. 180 MHz */
 			<26 512 0 2100000>, /* 2. 380 MHz */
 			<26 512 0 2560000>; /* 3. 480 MHz */
