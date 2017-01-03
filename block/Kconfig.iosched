@@ -139,6 +139,16 @@ config IOSCHED_ZEN
 	---help---
 	  The ZEN scheduler
 
+config IOSCHED_MAPLE
+	tristate "Maple I/O scheduler"
+	default y
+	---help---
+	  Maple uses a first come first serve style algorithm with seperated 
+	  read/write handling to allow for read biases. By prioritizing reads, 
+	  simple tasks should improve in performance. Maple also uses hooks for 
+	  the display state driver to increase expirations when power is suspended 
+	  to decrease workload.
+
 choice
 	prompt "Default I/O scheduler"
 	default DEFAULT_CFQ
@@ -175,6 +185,9 @@ choice
 		  any workload. It also tries to guarantee low latency to
 		  interactive and soft real-time applications.
 
+	config DEFAULT_MAPLE
+		bool "Maple" if IOSCHED_MAPLE=y
+
 	config DEFAULT_NOOP
 		bool "No-op"
 
@@ -210,6 +223,7 @@ config DEFAULT_IOSCHED
 	default "sioplus" if DEFAULT_SIOPLUS
 	default "tripndroid" if DEFAULT_TRIPNDROID
 	default "fifo" if DEFAULT_FIFO
+	default "maple" if DEFAULT_MAPLE
 	default "vr" if DEFAULT_VR
 	default "zen" if DEFAULT_ZEN
 

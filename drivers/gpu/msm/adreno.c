@@ -240,8 +240,8 @@ static const struct {
 /* Nice level for the higher priority GPU start thread */
 static unsigned int _wake_nice = -7;
 
-/* Number of milliseconds to stay active active after a wake on touch */
-static unsigned int _wake_timeout = 100;
+/* Number of milliseconds to stay active after a wake on touch */
+static unsigned int _wake_timeout = 150;
 
 /*
  * A workqueue callback responsible for actually turning on the GPU after a

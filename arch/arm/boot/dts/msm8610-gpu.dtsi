@@ -37,9 +37,9 @@
 		qcom,msm-bus,vectors-KBps =
 			<26 512 0 0>,       /* 0.   Off   */
 			<26 512 0 600000>,  /* 1. 100 MHz */
-			<26 512 0 959940>,  /* 1. 180 MHz */
-			<26 512 0 2100000>, /* 2. 380 MHz */
-			<26 512 0 2560000>; /* 3. 480 MHz */
+			<26 512 0 1080000>, /* 1. 180 MHz */
+			<26 512 0 2280000>, /* 1. 380 MHz */
+			<26 512 0 2880000>; /* 3. 480 MHz */
 
 		/* GDSC oxili regulators */
 		vdd-supply = <&gdsc_oxili_cx>;
@@ -82,7 +82,7 @@
 				reg = <3>;
 				qcom,gpu-freq = <180000000>;
 				qcom,bus-freq = <2>;
-				qcom,io-fraction = <100>;
+				qcom,io-fraction = <66>;
 			};
 
 			qcom,gpu-pwrlevel@4 {

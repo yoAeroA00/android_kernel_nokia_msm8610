@@ -49,7 +49,7 @@ static struct msm_bus_paths bw_level_tbl_8610[] = {
 	[2] =  BW_MBPS(381), /* At least 50 MHz on bus. */
 	[3] =  BW_MBPS(762), /* At least 100 MHz on bus. */
 	[4] = BW_MBPS(1525), /* At least 200 MHz on bus. */
-	[5] = BW_MBPS(2540), /* At least 333 MHz on bus. */
+	[5] = BW_MBPS(2152), /* At least 283 MHz on bus. */
 	[6] = BW_MBPS(2789), /* At least 366 MHz on bus. */
 };
 
@@ -122,27 +122,16 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 #else
 	{ 1,  300000, PLL0,    4, 2,   1140000,    1140000, 3 },
 #endif
-#ifdef CONFIG_CPU_OVERCLOCK
-	{ 1,  384000, ACPUPLL, 5, 2,   1140000,    1140000, 3 },
-#else
 	{ 1,  384000, ACPUPLL, 5, 2,   1140000,    1140000, 4 },
-#endif
 #ifdef CONFIG_CPU_UNDERCLOCK
 	{ 1,  499200, ACPUPLL, 5, 0,   1140000, 1140000, 4 },
 #endif
-#ifdef CONFIG_CPU_OVERCLOCK
-	{ 1,  600000, PLL0,    4, 0,   1150000, 1150000, 4 },
-#else
 	{ 1,  600000, PLL0,    4, 0,   1150000, 1150000, 5 },
-#endif
 	{ 1,  787200, ACPUPLL, 5, 0,   1150000, 1150000, 5 },
-#ifdef CONFIG_CPU_OVERCLOCK
-	{ 1,  998400, ACPUPLL, 5, 0,   1275000,  1275000, 5 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
-	{ 1, 1305600, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
-#else
 	{ 1,  998400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
 	{ 1, 1190400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+#ifdef CONFIG_CPU_OVERCLOCK
+	{ 1, 1305600, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
 #endif
 	{ 0 }
 };
@@ -154,27 +143,16 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 #else
 	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_2,    0, 3 },
 #endif
-#ifdef CONFIG_CPU_OVERCLOCK
-	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_2,    0, 3 },
-#else
 	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_2,    0, 4 },
-#endif
 #ifdef CONFIG_CPU_UNDERCLOCK
 	{ 1,  499200, ACPUPLL, 5, 0,   CPR_CORNER_2, 0, 4 },
 #endif
-#ifdef CONFIG_CPU_OVERCLOCK
-	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_4, 0, 4 },
-#else
 	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_4, 0, 5 },
-#endif
 	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_4, 0, 5 },
-#ifdef CONFIG_CPU_OVERCLOCK
-	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 5 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
-	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
-#else
 	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
 	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
+#ifdef CONFIG_CPU_OVERCLOCK
+	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
 #endif
 	{ 0 }
 };

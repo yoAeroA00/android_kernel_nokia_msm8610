@@ -74,6 +74,10 @@ static unsigned int hispeed_freq;
 #define DEFAULT_GO_HISPEED_LOAD 80
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
+/* Go to low speed when CPU load at or above this value. */
+#define DEFAULT_GO_LOWSPEED_LOAD 10
+static unsigned long go_lowspeed_load = DEFAULT_GO_LOWSPEED_LOAD;
+
 /* Sampling down factor to be applied to min_sample_time at max freq */
 static unsigned int sampling_down_factor;
 
@@ -414,6 +418,8 @@ static void cpufreq_interactive_timer(unsigned long data)
 			if (new_freq < hispeed_freq)
 				new_freq = hispeed_freq;
 		}
+	} else if ( cpu_load <= go_lowspeed_load) {
+		new_freq = pcpu->policy->min;
 	} else {
 		new_freq = choose_freq(pcpu, loadadjfreq);
 
@@ -908,6 +914,29 @@ static ssize_t store_go_hispeed_load(struct kobject *kobj,
 static struct global_attr go_hispeed_load_attr = __ATTR(go_hispeed_load, 0644,
 		show_go_hispeed_load, store_go_hispeed_load);
 
+static ssize_t show_go_lowspeed_load(struct kobject *kobj,
+				     struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%lu\n", go_lowspeed_load);
+}
+
+static ssize_t store_go_lowspeed_load(struct kobject *kobj,
+			struct attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned long val;
+
+	ret = strict_strtoul(buf, 0, &val);
+	if (ret < 0)
+		return ret;
+	go_lowspeed_load = val;
+	return count;
+}
+
+static struct global_attr go_lowspeed_load_attr = __ATTR(go_lowspeed_load, 0644,
+		show_go_lowspeed_load, store_go_lowspeed_load);
+
+
 static ssize_t show_min_sample_time(struct kobject *kobj,
 				struct attribute *attr, char *buf)
 {
@@ -1072,6 +1101,7 @@ static struct attribute *interactive_attributes[] = {
 	&above_hispeed_delay_attr.attr,
 	&hispeed_freq_attr.attr,
 	&go_hispeed_load_attr.attr,
+	&go_lowspeed_load_attr.attr,
 	&min_sample_time_attr.attr,
 	&timer_rate_attr.attr,
 	&timer_slack.attr,
@@ -1108,17 +1138,52 @@ static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
 
+static void cpufreq_interactive_nop_timer(unsigned long data)
+{
+}
+
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event)
 {
 	int rc;
-	unsigned int j;
+	unsigned int j, i;
 	struct cpufreq_interactive_cpuinfo *pcpu;
 	struct cpufreq_frequency_table *freq_table;
 	unsigned long expire_time;
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
 
 	switch (event) {
 	case CPUFREQ_GOV_START:
+
+		/* Initalize per-cpu timers */
+		for_each_possible_cpu(i) {
+			struct cpufreq_interactive_cpuinfo *pcpu;
+			pcpu = &per_cpu(cpuinfo, i);
+			init_timer_deferrable(&pcpu->cpu_timer);
+			pcpu->cpu_timer.function = cpufreq_interactive_timer;
+			pcpu->cpu_timer.data = i;
+			init_timer(&pcpu->cpu_slack_timer);
+			pcpu->cpu_slack_timer.function = cpufreq_interactive_nop_timer;
+			spin_lock_init(&pcpu->load_lock);
+			init_rwsem(&pcpu->enable_sem);
+		}
+
+		spin_lock_init(&target_loads_lock);
+		spin_lock_init(&speedchange_cpumask_lock);
+		spin_lock_init(&above_hispeed_delay_lock);
+		mutex_init(&gov_lock);
+		speedchange_task =
+			kthread_create(cpufreq_interactive_speedchange_task, NULL,
+			    	   "cfinteractive");
+		if (IS_ERR(speedchange_task))
+			return PTR_ERR(speedchange_task);
+
+		sched_setscheduler_nocheck(speedchange_task, SCHED_FIFO, &param);
+		get_task_struct(speedchange_task);
+
+		/* NB: wake up so the thread does not look hung to the freezer */
+		wake_up_process(speedchange_task);
+
 		mutex_lock(&gov_lock);
 
 		freq_table =
@@ -1167,6 +1232,8 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		break;
 
 	case CPUFREQ_GOV_STOP:
+		kthread_stop(speedchange_task);
+		put_task_struct(speedchange_task);
 		mutex_lock(&gov_lock);
 		for_each_cpu(j, policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, j);
@@ -1263,65 +1330,26 @@ struct cpufreq_governor cpufreq_gov_interactive = {
 	.owner = THIS_MODULE,
 };
 
-static void cpufreq_interactive_nop_timer(unsigned long data)
-{
-}
-
 static int __init cpufreq_interactive_init(void)
 {
-	unsigned int i;
-	struct cpufreq_interactive_cpuinfo *pcpu;
-	struct sched_param param = { .sched_priority = MAX_RT_PRIO-1 };
-
-	/* Initalize per-cpu timers */
-	for_each_possible_cpu(i) {
-		pcpu = &per_cpu(cpuinfo, i);
-		init_timer_deferrable(&pcpu->cpu_timer);
-		pcpu->cpu_timer.function = cpufreq_interactive_timer;
-		pcpu->cpu_timer.data = i;
-		init_timer(&pcpu->cpu_slack_timer);
-		pcpu->cpu_slack_timer.function = cpufreq_interactive_nop_timer;
-		spin_lock_init(&pcpu->load_lock);
-		init_rwsem(&pcpu->enable_sem);
-	}
-
-	spin_lock_init(&target_loads_lock);
-	spin_lock_init(&speedchange_cpumask_lock);
-	spin_lock_init(&above_hispeed_delay_lock);
-	mutex_init(&gov_lock);
-	speedchange_task =
-		kthread_create(cpufreq_interactive_speedchange_task, NULL,
-			       "cfinteractive");
-	if (IS_ERR(speedchange_task))
-		return PTR_ERR(speedchange_task);
-
-	sched_setscheduler_nocheck(speedchange_task, SCHED_FIFO, &param);
-	get_task_struct(speedchange_task);
-
-	/* NB: wake up so the thread does not look hung to the freezer */
-	wake_up_process(speedchange_task);
-
 	return cpufreq_register_governor(&cpufreq_gov_interactive);
 }
+
+static void __exit cpufreq_interactive_exit(void)
+{
+	cpufreq_unregister_governor(&cpufreq_gov_interactive);
+	if (above_hispeed_delay != default_above_hispeed_delay)
+		kfree(above_hispeed_delay);
+}
+
+MODULE_AUTHOR("Mike Chan <mike@android.com>");
+MODULE_DESCRIPTION("'cpufreq_interactive' - A cpufreq governor for "
+	"Latency sensitive workloads");
+MODULE_LICENSE("GPL");
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 fs_initcall(cpufreq_interactive_init);
 #else
 module_init(cpufreq_interactive_init);
 #endif
-
-static void __exit cpufreq_interactive_exit(void)
-{
-	cpufreq_unregister_governor(&cpufreq_gov_interactive);
-	kthread_stop(speedchange_task);
-	put_task_struct(speedchange_task);
-	if (above_hispeed_delay != default_above_hispeed_delay)
-		kfree(above_hispeed_delay);
-}
-
 module_exit(cpufreq_interactive_exit);
-
-MODULE_AUTHOR("Mike Chan <mike@android.com>");
-MODULE_DESCRIPTION("'cpufreq_interactive' - A cpufreq governor for "
-	"Latency sensitive workloads");
-MODULE_LICENSE("GPL");
