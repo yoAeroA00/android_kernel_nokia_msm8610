@@ -291,7 +291,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		min_t(int, (int)card->ext_csd.max_packed_writes,
 		     DEFAULT_NUM_REQS_TO_START_PACK);
 
-	mq->queue->backing_dev_info.ra_pages = (256 * 1024) / PAGE_CACHE_SIZE;
+	mq->queue->backing_dev_info.ra_pages = (512 * 1024) / PAGE_CACHE_SIZE;
 
 	blk_queue_prep_rq(mq->queue, mmc_prep_request);
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
