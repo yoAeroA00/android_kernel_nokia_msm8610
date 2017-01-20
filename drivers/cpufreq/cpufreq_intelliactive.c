@@ -133,8 +133,11 @@ static unsigned int up_threshold_any_cpu_load = 95;
 static unsigned int sync_freq = 787200;
 static unsigned int up_threshold_any_cpu_freq = 998400;
 
+#ifdef CONFIG_CPU_OVERCLOCK
+static int two_phase_freq_array[NR_CPUS] = {[0 ... NR_CPUS-1] = 1344000} ;
+#else
 static int two_phase_freq_array[NR_CPUS] = {[0 ... NR_CPUS-1] = 1190400} ;
-
+#endif
 static int cpufreq_governor_intelliactive(struct cpufreq_policy *policy,
 		unsigned int event);
 

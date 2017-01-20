@@ -90,9 +90,7 @@ typedef struct{
 	unsigned int freq_value;
 } freq_table_idx;
 static freq_table_idx pre_freq_idx[SUP_CORE_NUM] = {};
-
 #endif
-
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 

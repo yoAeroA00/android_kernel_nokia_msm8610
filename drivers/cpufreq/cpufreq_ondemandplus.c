@@ -98,7 +98,12 @@ static unsigned long down_differential;
 #define DEFAULT_MIN_FREQ 200000
 static u64 allowed_min;
 
+#ifdef CONFIG_CPU_OVERCLOCK
+#define DEFAULT_MAX_FREQ 1344000
+#else
 #define DEFAULT_MAX_FREQ 1190400
+#endif
+
 static u64 allowed_max;
 
 #define DEFAULT_INTER_HIFREQ 998400
@@ -107,7 +112,11 @@ static u64 inter_hifreq;
 #define DEFAULT_INTER_LOFREQ 200000
 static u64 inter_lofreq;
 
+#ifdef CONFIG_CPU_UNDERCLOCK
+#define SUSPEND_FREQ 75000
+#else
 #define SUSPEND_FREQ 384000
+#endif
 static u64 suspend_frequency;
 
 #define DEFAULT_INTER_STAYCYCLES 2

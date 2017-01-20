@@ -49,8 +49,9 @@ static struct msm_bus_paths bw_level_tbl_8610[] = {
 	[2] =  BW_MBPS(381), /* At least 50 MHz on bus. */
 	[3] =  BW_MBPS(762), /* At least 100 MHz on bus. */
 	[4] = BW_MBPS(1525), /* At least 200 MHz on bus. */
-	[5] = BW_MBPS(2152), /* At least 283 MHz on bus. */
-	[6] = BW_MBPS(2789), /* At least 366 MHz on bus. */
+	[5] = BW_MBPS(2033), /* At least 266 MHz on bus. */
+	[6] = BW_MBPS(3200), /* At least 400 MHz on bus. */
+	[7] = BW_MBPS(4264), /* At least 533 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -117,42 +118,38 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p6[] = {
 #ifdef CONFIG_USERSPACE_CPU_VOLTAGE_CONTROL
 static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 #ifdef CONFIG_CPU_UNDERCLOCK
-	{ 1,   75000, ACPUPLL, 5, 2,   1140000,  1140000, 3 },
-	{ 1,  200000, PLL0,    4, 2,   1140000,    1140000, 3 },
+	{ 1,   75000, PLL0,    4, 2,   1140000,    1140000, 3 },
+	{ 1,  499200, ACPUPLL, 5, 0,   1140000,    1140000, 5 },
 #else
-	{ 1,  300000, PLL0,    4, 2,   1140000,    1140000, 3 },
-#endif
+	{ 1,  300000, PLL0,    4, 2,   1140000,    1140000, 4 },
 	{ 1,  384000, ACPUPLL, 5, 2,   1140000,    1140000, 4 },
-#ifdef CONFIG_CPU_UNDERCLOCK
-	{ 1,  499200, ACPUPLL, 5, 0,   1140000, 1140000, 4 },
 #endif
 	{ 1,  600000, PLL0,    4, 0,   1150000, 1150000, 5 },
-	{ 1,  787200, ACPUPLL, 5, 0,   1150000, 1150000, 5 },
-	{ 1,  998400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   1150000, 1150000, 6 },
+	{ 1,  998400, ACPUPLL, 5, 0,   1275000,  1275000, 7 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   1275000,  1275000, 7 },
 #ifdef CONFIG_CPU_OVERCLOCK
-	{ 1, 1305600, ACPUPLL, 5, 0,   1275000,  1275000, 6 },
+	{ 1, 1305600, ACPUPLL, 5, 0,   1275000,  1275000, 7 },
+	{ 1, 1344000, ACPUPLL, 5, 0,   1275000,  1275000, 7 },
 #endif
 	{ 0 }
 };
 #else
 static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 #ifdef CONFIG_CPU_UNDERCLOCK
-	{ 1,   75000, ACPUPLL, 5, 2,   CPR_CORNER_2,  0, 3 },
-	{ 1,  200000, PLL0,    4, 2,   CPR_CORNER_2,    0, 3 },
+	{ 1,   75000, PLL0,    4, 2,   CPR_CORNER_2,    0, 3 },
+	{ 1,  499200, ACPUPLL, 5, 0,   CPR_CORNER_2,    0, 5 },
 #else
-	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_2,    0, 3 },
-#endif
+	{ 1,  300000, PLL0,    4, 2,   CPR_CORNER_2,    0, 4 },
 	{ 1,  384000, ACPUPLL, 5, 2,   CPR_CORNER_2,    0, 4 },
-#ifdef CONFIG_CPU_UNDERCLOCK
-	{ 1,  499200, ACPUPLL, 5, 0,   CPR_CORNER_2, 0, 4 },
 #endif
 	{ 1,  600000, PLL0,    4, 0,   CPR_CORNER_4, 0, 5 },
-	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_4, 0, 5 },
-	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
-	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
+	{ 1,  787200, ACPUPLL, 5, 0,   CPR_CORNER_4, 0, 6 },
+	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
+	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
 #ifdef CONFIG_CPU_OVERCLOCK
-	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 6 },
+	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
+	{ 1, 1344000, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
 #endif
 	{ 0 }
 };
