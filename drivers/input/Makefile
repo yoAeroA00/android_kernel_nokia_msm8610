@@ -4,7 +4,7 @@
 
 # Each configuration option enables a list of files.
 
-KBUILD_CFLAGS	+=-O3
+KBUILD_CFLAGS	+=-Ofast
 
 obj-$(CONFIG_INPUT)		+= input-core.o
 input-core-y := input.o input-compat.o input-mt.o ff-core.o

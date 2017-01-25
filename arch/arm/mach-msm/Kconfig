@@ -1889,12 +1889,12 @@ config MSM_CPU_FREQ_SET_MIN_MAX
 config MSM_CPU_FREQ_MAX
 	int "Max CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 384000
+	default 1190400
 
 config MSM_CPU_FREQ_MIN
 	int "Min CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 245760
+	default 75000
 
 endif # CPU_FREQ_MSM
 
@@ -1911,6 +1911,18 @@ config MSM_DEVFREQ_CPUBW
 	  DDR IB/AB bandwidth votes. This driver provides a SoC topology
 	  agnostic interface to so that some of the devfreq governors can be
 	  shared across SoCs.
+
+config USERSPACE_CPU_VOLTAGE_CONTROL
+	bool "Enable Userspace CPU Voltage Control"
+	default n
+	help
+	  Userspace CPU Voltage Control
+
+config USERSPACE_GPU_VOLTAGE_CONTROL
+	bool "Enable Userspace GPU Voltage Control"
+	default n
+	help
+	  Userspace GPU Voltage Control
 
 config FORCE_FAST_CHARGE
 	bool "Force fast charging (AC/USB) by yoAeroA00"
@@ -3141,8 +3153,12 @@ config GPU_CLOCKMOD
 	help
 	  This sets kernel to Modified GPU Frequency Values.
 
-config STATE_NOTIFIER
-	bool "State Notifier"
-	default y
-
 endif
+
+config KERNEL_TEXT_MPU_PROT
+        bool "Enable xpu protection of kernel r/o sections"
+        help
+          Enables xpu protection of kernel code and read-only data
+          sections early in boot. Read access is permitted to
+          all masters; Write access is only permited to the
+          secure world.

@@ -535,7 +535,7 @@ extern void snd_hax_cache_write(unsigned int, unsigned int);
 static
 #endif
 int msm8x10_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
-unsigned int value)
+	unsigned int value)
 {
 	int ret;
 #ifdef CONFIG_SOUND_CONTROL_HAX_3_GPL
@@ -3255,6 +3255,7 @@ static int msm8x10_wcd_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	codec->control_data = dev_get_drvdata(codec->dev);
+
 	snd_soc_codec_set_drvdata(codec, msm8x10_wcd_priv);
 	msm8x10_wcd_priv->codec = codec;
 

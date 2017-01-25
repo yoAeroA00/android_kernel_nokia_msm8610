@@ -35,7 +35,6 @@ unsigned int msm8x10_wcd_read(struct snd_soc_codec *codec, unsigned int reg);
 int msm8x10_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
 		unsigned int value);
 
-
 static unsigned int cached_regs[] = {6, 6, 0, 0, 0, 0, 0, 0, 0, 0,
 			    0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			    0 };

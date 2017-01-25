@@ -303,10 +303,8 @@ static void tick_nohz_stop_sched_tick(struct tick_sched *ts, ktime_t now)
 		return;
 	}
 
-	if (unlikely(ts->nohz_mode == NOHZ_MODE_INACTIVE)) {
-		ts->sleep_length = (ktime_t) { .tv64 = NSEC_PER_SEC/HZ };
-		return;
-	}
+	if (unlikely(ts->nohz_mode == NOHZ_MODE_INACTIVE))
+ 		return;
 
 	if (need_resched())
 		return;
@@ -416,7 +414,6 @@ static void tick_nohz_stop_sched_tick(struct tick_sched *ts, ktime_t now)
 		 */
 		if (!ts->tick_stopped) {
 			select_nohz_load_balancer(1);
-			calc_load_enter_idle();
 
 			ts->last_tick = hrtimer_get_expires(&ts->sched_timer);
 			ts->tick_stopped = 1;
@@ -456,7 +453,6 @@ static void tick_nohz_stop_sched_tick(struct tick_sched *ts, ktime_t now)
 out:
 	ts->next_jiffies = next_jiffies;
 	ts->last_jiffies = last_jiffies;
-	ts->sleep_length = ktime_sub(dev->next_event, now);
 }
 
 static void __tick_nohz_idle_enter(struct tick_sched *ts)
@@ -521,17 +517,12 @@ void tick_nohz_idle_enter(void)
  */
 void tick_nohz_irq_exit(void)
 {
-	unsigned long flags;
 	struct tick_sched *ts = &__get_cpu_var(tick_cpu_sched);
 
 	if (!ts->inidle)
 		return;
 
-	local_irq_save(flags);
-
 	__tick_nohz_idle_enter(ts);
-
-	local_irq_restore(flags);
 }
 
 /**
@@ -578,9 +569,7 @@ static void tick_nohz_restart_sched_tick(struct tick_sched *ts, ktime_t now)
 	/* Update jiffies first */
 	select_nohz_load_balancer(0);
 	tick_do_update_jiffies64(now);
-	update_cpu_load_nohz();
 
-	calc_load_exit_idle();
 	touch_softlockup_watchdog();
 	/*
 	 * Cancel the scheduled timer and restore the tick
@@ -684,7 +673,8 @@ static void tick_nohz_handler(struct clock_event_device *dev)
 	 */
 	if (ts->tick_stopped) {
 		touch_softlockup_watchdog();
-		ts->idle_jiffies++;
+			if (is_idle_task(current))
+				ts->idle_jiffies++;
 	}
 
 	update_process_times(user_mode(regs));
@@ -886,8 +876,7 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 		 */
 		if (ts->tick_stopped) {
 			touch_softlockup_watchdog();
-			if (is_idle_task(current))
-				ts->idle_jiffies++;
+			ts->idle_jiffies++;
 		}
 		update_process_times(user_mode(regs));
 		profile_tick(CPU_PROFILING);
@@ -955,7 +944,7 @@ void tick_cancel_sched_timer(int cpu)
 		hrtimer_cancel(&ts->sched_timer);
 # endif
 
-	memset(ts, 0, sizeof(*ts));
+	ts->nohz_mode = NOHZ_MODE_INACTIVE;
 }
 #endif
 

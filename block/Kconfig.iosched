@@ -115,6 +115,14 @@ config IOSCHED_SIOPLUS
 	  basic merging, trying to keep a minimum overhead. It is aimed
 	  mainly for aleatory access devices (eg: flash devices).
 
+config IOSCHED_ZENPLUS
+          tristate "Zenplus I/O scheduler"
+          default y
+          ---help---
+            FCFS, dispatches are back-inserted, async and synchronous for relay
+	    on deadlines to ensure fairness. Should work best with devices where
+	    there is no travel delay such as SSD.
+
 config IOSCHED_TRIPNDROID
 	tristate "Tripndroid"
 	default y
@@ -138,6 +146,22 @@ config IOSCHED_ZEN
 	default y
 	---help---
 	  The ZEN scheduler
+
+config IOSCHED_MAPLE
+	tristate "Maple I/O scheduler"
+	default y
+	---help---
+	  Maple uses a first come first serve style algorithm with seperated 
+	  read/write handling to allow for read biases. By prioritizing reads, 
+	  simple tasks should improve in performance. Maple also uses hooks for 
+	  the display state driver to increase expirations when power is suspended 
+	  to decrease workload.
+
+config IOSCHED_SIDE
+	tristate "SIDE I/O scheduler"
+	default y
+	---help---
+	  The simple version of deadline I/O Scheduler.
 
 choice
 	prompt "Default I/O scheduler"
@@ -175,6 +199,9 @@ choice
 		  any workload. It also tries to guarantee low latency to
 		  interactive and soft real-time applications.
 
+	config DEFAULT_MAPLE
+		bool "Maple" if IOSCHED_MAPLE=y
+
 	config DEFAULT_NOOP
 		bool "No-op"
 
@@ -183,6 +210,9 @@ choice
 
 	config DEFAULT_SIOPLUS
 		bool "SIOPLUS" if IOSCHED_SIOPLUS=y
+
+        config DEFAULT_ZENPLUS
+                bool "ZENPLUS" if IOSCHED_ZENPLUS=y
 
 	config DEFAULT_TRIPNDROID
 		bool "TRIPNDROID" if IOSCHED_TRIPNDROID=y
@@ -195,6 +225,9 @@ choice
 
 	config DEFAULT_ZEN
 		bool "ZEN" if IOSCHED_ZEN=y 
+
+	config DEFAULT_SIDE
+		bool "SIDE" if IOSCHED_SIDE=y
 
 endchoice
 
@@ -210,8 +243,11 @@ config DEFAULT_IOSCHED
 	default "sioplus" if DEFAULT_SIOPLUS
 	default "tripndroid" if DEFAULT_TRIPNDROID
 	default "fifo" if DEFAULT_FIFO
+	default "maple" if DEFAULT_MAPLE
 	default "vr" if DEFAULT_VR
 	default "zen" if DEFAULT_ZEN
+        default "zenplus" if DEFAULT_ZENPLUS
+	default "side" if DEFAULT_SIDE
 
 endmenu
 

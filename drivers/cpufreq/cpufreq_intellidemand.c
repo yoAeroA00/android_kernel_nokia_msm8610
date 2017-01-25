@@ -90,9 +90,7 @@ typedef struct{
 	unsigned int freq_value;
 } freq_table_idx;
 static freq_table_idx pre_freq_idx[SUP_CORE_NUM] = {};
-
 #endif
-
 
 #if defined(SMART_UP_SLOW_UP_AT_HIGH_FREQ)
 
@@ -1952,7 +1950,7 @@ static int dbs_sync_thread(void *data)
 	this_dbs_info = &per_cpu(id_cpu_dbs_info, cpu);
 
 	while (1) {
-		wait_event(this_dbs_info->sync_wq,
+		wait_event_interruptible(this_dbs_info->sync_wq,
 			   sync_pending(this_dbs_info) ||
 			   kthread_should_stop());
 

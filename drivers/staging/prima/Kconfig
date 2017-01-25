@@ -53,4 +53,8 @@ config ENABLE_LINUX_REG
 	bool "Enable linux regulatory feature"
 	default n
 
+config ENABLE_DEBUG_WLAN
+    bool "Enable debug WLAN"
+    default n
+
 endif # PRIMA_WLAN || PRONTO_WLAN

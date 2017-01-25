@@ -27,6 +27,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 
+#define PM8226_FLASH_LED
+
 #define WLED_MOD_EN_REG(base, n)	(base + 0x60 + n*0x10)
 #define WLED_IDAC_DLY_REG(base, n)	(WLED_MOD_EN_REG(base, n) + 0x01)
 #define WLED_FULL_SCALE_REG(base, n)	(WLED_IDAC_DLY_REG(base, n) + 0x01)
@@ -46,7 +48,7 @@
 #define WLED_CURR_SINK_MASK		0xE0
 #define WLED_CURR_SINK_SHFT		0x05
 #define WLED_DISABLE_ALL_SINKS		0x00
-#define WLED_SWITCH_FREQ_MASK		0x0F
+#define WLED_SWITCH_FREQ_MASK		0x02
 #define WLED_OVP_VAL_MASK		0x03
 #define WLED_OVP_VAL_BIT_SHFT		0x00
 #define WLED_BOOST_LIMIT_MASK		0x07
@@ -121,6 +123,9 @@
 #define FLASH_TMR_SAFETY		0x00
 #define FLASH_FAULT_DETECT_MASK		0X80
 #define FLASH_HW_VREG_OK		0x40
+#ifdef PM8226_FLASH_LED
+#define FLASH_SW_VREG_OK		0x80
+#endif
 #define FLASH_VREG_MASK			0xC0
 #define FLASH_STARTUP_DLY_MASK		0x02
 #define FLASH_CURRENT_RAMP_MASK		0xBF
@@ -556,6 +561,7 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 {
 	int rc, duty, level;
 	u8 val, i, num_wled_strings, sink_val;
+	static int old_level = -1;
 
 	num_wled_strings = led->wled_cfg->num_strings;
 
@@ -684,6 +690,11 @@ static int qpnp_wled_set(struct qpnp_led_data *led)
 		dev_err(&led->spmi_dev->dev, "WLED sync failed(%d)\n", rc);
 		return rc;
 	}
+
+	if (level != old_level && old_level == 0)
+	dev_info(&led->spmi_dev->dev, "backlight on");
+	old_level = level;
+
 	return 0;
 }
 
@@ -709,13 +720,15 @@ static int qpnp_mpp_set(struct qpnp_led_data *led)
 			}
 		}
 		if (led->mpp_cfg->pwm_mode == PWM_MODE) {
-			pwm_disable(led->mpp_cfg->pwm_cfg->pwm_dev);
 			duty_us = (led->mpp_cfg->pwm_cfg->pwm_period_us *
-					led->cdev.brightness) / LED_FULL;
+					led->cdev.brightness *
+					NSEC_PER_USEC) / LED_FULL;
+			pwm_disable(led->mpp_cfg->pwm_cfg->pwm_dev);
 			/*config pwm for brightness scaling*/
-			rc = pwm_config_us(led->mpp_cfg->pwm_cfg->pwm_dev,
+			rc = pwm_config(led->mpp_cfg->pwm_cfg->pwm_dev,
 					duty_us,
-					led->mpp_cfg->pwm_cfg->pwm_period_us);
+					led->mpp_cfg->pwm_cfg->pwm_period_us *
+						NSEC_PER_USEC);
 			if (rc < 0) {
 				dev_err(&led->spmi_dev->dev, "Failed to " \
 					"configure pwm for new values\n");
@@ -1119,6 +1132,21 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				goto error_flash_set;
 		}
 
+#ifdef PM8226_FLASH_LED
+		rc = qpnp_led_masked_write(led,
+			FLASH_ENABLE_CONTROL(led->base),
+			led->flash_cfg->enable_module,
+			FLASH_DISABLE_ALL);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Enable reg write failed(%d)\n", rc);
+			if (led->flash_cfg->torch_enable)
+				goto error_torch_set;
+			else
+				goto error_flash_set;
+		}
+#endif
+
 		if (led->flash_cfg->torch_enable) {
 			rc = qpnp_led_masked_write(led,
 				FLASH_LED_UNLOCK_SECURE(led->base),
@@ -1165,6 +1193,7 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 			 */
 			usleep(FLASH_RAMP_DN_DELAY_US);
 
+#ifndef PM8226_FLASH_LED
 			rc = qpnp_led_masked_write(led,
 				FLASH_ENABLE_CONTROL(led->base),
 				led->flash_cfg->enable_module &
@@ -1178,6 +1207,7 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				else
 					goto error_flash_set;
 			}
+#endif
 
 			rc = qpnp_flash_regulator_operate(led, false);
 			if (rc) {
@@ -2290,7 +2320,11 @@ static int __devinit qpnp_flash_init(struct qpnp_led_data *led)
 
 	/* Set Vreg force */
 	rc = qpnp_led_masked_write(led,	FLASH_VREG_OK_FORCE(led->base),
+#ifdef PM8226_FLASH_LED
+		FLASH_VREG_MASK, FLASH_SW_VREG_OK);
+#else
 		FLASH_VREG_MASK, FLASH_HW_VREG_OK);
+#endif /* PM8226_FLASH_LED */
 	if (rc) {
 		dev_err(&led->spmi_dev->dev,
 			"Vreg OK reg write failed(%d)\n", rc);

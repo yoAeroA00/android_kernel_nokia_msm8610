@@ -1,8 +1,6 @@
-When Enabled SLQB, RAM Constant FillUp until FreeZUp.
-
 -------------------------------------------------------------
      Some Performance Tweaks (May Cause Hidden Problems)     
 -------------------------------------------------------------
 
 /lib/int_sqrt.c            --->   int_sqrt.c.perf
-  (It seems Slow For me)                (It seems Fast for me)
+  (It seems Fast for me)                (It also seems Fast for me)

@@ -116,7 +116,11 @@ extern int tegra_input_boost (struct cpufreq_policy *policy,
 #endif
 
 #ifdef CONFIG_CPU_FREQ_GOV_SMARTMAX_FIND5
+#ifdef CONFIG_CPU_UNDERCLOCK
+#define DEFAULT_SUSPEND_IDEAL_FREQ 75000
+#else
 #define DEFAULT_SUSPEND_IDEAL_FREQ 384000
+#endif
 #define DEFAULT_AWAKE_IDEAL_FREQ 702000
 #define DEFAULT_RAMP_UP_STEP 300000
 #define DEFAULT_RAMP_DOWN_STEP 200000

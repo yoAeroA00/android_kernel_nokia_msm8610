@@ -2,11 +2,10 @@
 # kbuild file for usr/ - including initramfs image
 #
 
-KBUILD_CFLAGS	+=-O3
+KBUILD_CFLAGS	+=-Ofast
 
 klibcdirs:;
 PHONY += klibcdirs
-
 
 # Gzip
 suffix_$(CONFIG_INITRAMFS_COMPRESSION_GZIP)   = .gz
@@ -22,6 +21,9 @@ suffix_$(CONFIG_INITRAMFS_COMPRESSION_XZ)     = .xz
 
 # Lzo
 suffix_$(CONFIG_INITRAMFS_COMPRESSION_LZO)   = .lzo
+
+# Lz4
+suffix_$(CONFIG_INITRAMFS_COMPRESSION_LZ4)   = .lz4
 
 AFLAGS_initramfs_data.o += -DINITRAMFS_IMAGE="usr/initramfs_data.cpio$(suffix_y)"
 

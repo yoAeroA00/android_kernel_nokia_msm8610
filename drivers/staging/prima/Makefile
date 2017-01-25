@@ -4,7 +4,11 @@ WLAN_ROOT := drivers/staging/prima
 # Feature flags which are not (currently) configurable via Kconfig
 
 #Whether to build debug version
+ifeq ($(CONFIG_ENABLE_DEBUG_WLAN),y)
 BUILD_DEBUG_VERSION := 1
+else
+BUILD_DEBUG_VERSION := 0
+endif
 
 #Enable this flag to build driver in diag version
 BUILD_DIAG_VERSION := 1
@@ -516,6 +520,10 @@ CDEFINES +=	-DWLAN_DEBUG \
 		-DPE_DEBUG_LOGW \
 		-DPE_DEBUG_LOGE \
 		-DDEBUG
+else
+CDEFINES +=	-DTRACE_RECORD \
+		-DLIM_TRACE_RECORD \
+		-DSME_TRACE_RECORD
 endif
 
 ifeq ($(CONFIG_SLUB_DEBUG_ON),y)
@@ -603,7 +611,7 @@ endif
 CDEFINES += -DFEATURE_WLAN_CH_AVOID
 
 # Fix build for GCC 4.7
-EXTRA_CFLAGS += -Wno-maybe-uninitialized -Wno-unused-function
+EXTRA_CFLAGS += -Wno-maybe-uninitialized -Wno-unused-function -Wno-unused-variable
 
 KBUILD_CPPFLAGS += $(CDEFINES)
 

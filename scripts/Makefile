@@ -8,7 +8,7 @@
 # conmakehash:	 Create arrays for initializing the kernel console tables
 # docproc:       Used in Documentation/DocBook
 
-KBUILD_CFLAGS	+=-O3
+KBUILD_CFLAGS	+=-Ofast
 
 HOST_EXTRACFLAGS += -I$(srctree)/tools/include
 
