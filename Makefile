@@ -260,8 +260,8 @@ HOSTCXXFLAGS = -pipe -DNDEBUG -Ofast -fgcse-las
 
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
 # More Graphite
-HOSTCFLAGS   += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
-HOSTCXXFLAGS += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
+HOSTCFLAGS   += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -floop-unroll-and-jam -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
+HOSTCXXFLAGS += -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -floop-unroll-and-jam -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
 endif
 
 # Decide whether to build built-in, modular, or both.
@@ -373,18 +373,18 @@ endif
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
-GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block
-YOFLAGS		= -Ofast -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -floop-nest-optimize -fno-delete-null-pointer-checks -ftree-loop-distribute-patterns -ftree-loop-distribute-patterns -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89 $(GPEFLAGS)
+GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -floop-unroll-and-jam -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block -ftree-loop-distribute-patterns -ftree-loop-distribute-patterns
+YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89 $(GPEFLAGS)
 else
-YOFLAGS		= -Ofast -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -floop-nest-optimize -fno-delete-null-pointer-checks -ftree-loop-distribute-patterns -ftree-loop-distribute-patterns -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89
+YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89
 endif
 CFLAGS_MODULE   = -DMODULE -fno-pic $(YOFLAGS)
 AFLAGS_MODULE   = -DMODULE $(YOFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds --strip-debug
 CFLAGS_KERNEL	= $(YOFLAGS)
 AFLAGS_KERNEL	= $(YOFLAGS)
-CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
-LDFLAGS		= -O1 --sort-common --hash-style=gnu
+CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage -fno-tree-loop-im -Wno-maybe-uninitialized
+LDFLAGS		= -Ofast --sort-common --hash-style=gnu
 
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
@@ -402,6 +402,7 @@ KBUILD_CFLAGS   := -DNDEBUG -Wundef -Wstrict-prototypes -Wno-trigraphs -Wno-size
 		   -Wno-format-security -Wno-unused-variable \
 		   -fgnu89-inline -fgcse-las -fweb -frename-registers \
 		   -fprefetch-loop-arrays -fno-gcse $(YOFLAGS)
+
 KBUILD_AFLAGS_KERNEL := $(YOFLAGS)
 KBUILD_CFLAGS_KERNEL := $(YOFLAGS)
 KBUILD_AFLAGS   := -D__ASSEMBLY__

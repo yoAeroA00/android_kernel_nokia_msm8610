@@ -1,5 +1,7 @@
 # Makefile for staging directory
 
+KBUILD_CFLAGS	+=-Ofast
+
 # fix for build system bug...
 obj-$(CONFIG_STAGING)		+= staging.o
 

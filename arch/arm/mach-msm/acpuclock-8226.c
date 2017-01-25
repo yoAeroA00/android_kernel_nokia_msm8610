@@ -33,25 +33,25 @@
 #define RCG_CONFIG_UPDATE_BIT		BIT(0)
 
 static struct msm_bus_paths bw_level_tbl_8226[] = {
-	[0] =  BW_MBPS(152), /* At least 19 MHz on bus. */
-	[1] =  BW_MBPS(300), /* At least 37.5 MHz on bus. */
+	[0] =  BW_MBPS(145), /* At least 19 MHz on bus. */
+	[1] =  BW_MBPS(286), /* At least 37.5 MHz on bus. */
 	[2] =  BW_MBPS(381), /* At least 50 MHz on bus. */
 	[3] =  BW_MBPS(762), /* At least 100 MHz on bus. */
 	[4] = BW_MBPS(1525), /* At least 200 MHz on bus. */
 	[5] = BW_MBPS(2033), /* At least 266 MHz on bus. */
-	[6] = BW_MBPS(3200), /* At least 400 MHz on bus. */
-	[7] = BW_MBPS(4264), /* At least 533 MHz on bus. */
+	[6] = BW_MBPS(3051), /* At least 400 MHz on bus. */
+	[7] = BW_MBPS(4066), /* At least 533 MHz on bus. */
 };
 
 static struct msm_bus_paths bw_level_tbl_8610[] = {
-	[0] =  BW_MBPS(152), /* At least 19 MHz on bus. */
-	[1] =  BW_MBPS(300), /* At least 37.5 MHz on bus. */
+	[0] =  BW_MBPS(145), /* At least 19 MHz on bus. */
+	[1] =  BW_MBPS(286), /* At least 37.5 MHz on bus. */
 	[2] =  BW_MBPS(381), /* At least 50 MHz on bus. */
 	[3] =  BW_MBPS(762), /* At least 100 MHz on bus. */
 	[4] = BW_MBPS(1525), /* At least 200 MHz on bus. */
 	[5] = BW_MBPS(2033), /* At least 266 MHz on bus. */
-	[6] = BW_MBPS(3200), /* At least 400 MHz on bus. */
-	[7] = BW_MBPS(4264), /* At least 533 MHz on bus. */
+	[6] = BW_MBPS(3051), /* At least 400 MHz on bus. */
+	[7] = BW_MBPS(4066), /* At least 533 MHz on bus. */
 };
 
 static struct msm_bus_scale_pdata bus_client_pdata = {
@@ -80,8 +80,6 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8226_1p2[] = {
 	{ 1,  998400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
 	{ 1, 1094400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
 	{ 1, 1190400, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
-	{ 1, 1305600, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
-	{ 1, 1344000, ACPUPLL, 5, 0,   CPR_CORNER_12,  0, 7 },
 	{ 0 }
 };
 
@@ -158,7 +156,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl_8610[] = {
 static struct clkctl_acpu_speed *pvs_tables_8226[NUM_SPEED_BIN] = {
 	[0] = acpu_freq_tbl_8226_1p2,
 	[6] = acpu_freq_tbl_8226_1p2,
-	[2] = acpu_freq_tbl_8226_1p2,
+	[2] = acpu_freq_tbl_8226_1p4,
 	[5] = acpu_freq_tbl_8226_1p4,
 	[4] = acpu_freq_tbl_8226_1p4,
 	[7] = acpu_freq_tbl_8226_1p4,
