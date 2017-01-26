@@ -255,8 +255,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wmissing-prototypes -Wstrict-prototypes -Ofast -fomit-frame-pointer -fgcse-las -pipe -DNDEBUG -std=gnu89
-HOSTCXXFLAGS = -pipe -DNDEBUG -Ofast -fgcse-las
+HOSTCFLAGS   = -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -fgcse-las -pipe -DNDEBUG -std=gnu89
+HOSTCXXFLAGS = -pipe -DNDEBUG -O2 -fgcse-las
 
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
 # More Graphite
@@ -373,10 +373,10 @@ endif
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
-GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -floop-unroll-and-jam -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block -ftree-loop-distribute-patterns -ftree-loop-distribute-patterns
-YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89 $(GPEFLAGS)
+GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -floop-unroll-and-jam -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block -ftree-loop-distribute-patterns
+YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -funswitch-loops -fvect-cost-model -std=gnu89 $(GPEFLAGS)
 else
-YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -ffast-math -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -ftree-slp-vectorize -funswitch-loops -fvect-cost-model -std=gnu89
+YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -funswitch-loops -fvect-cost-model -std=gnu89
 endif
 CFLAGS_MODULE   = -DMODULE -fno-pic $(YOFLAGS)
 AFLAGS_MODULE   = -DMODULE $(YOFLAGS)
@@ -384,7 +384,7 @@ LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds --strip-debug
 CFLAGS_KERNEL	= $(YOFLAGS)
 AFLAGS_KERNEL	= $(YOFLAGS)
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage -fno-tree-loop-im -Wno-maybe-uninitialized
-LDFLAGS		= -Ofast --sort-common --hash-style=gnu
+LDFLAGS		= -O2 --sort-common --hash-style=gnu
 
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
@@ -401,7 +401,7 @@ KBUILD_CFLAGS   := -DNDEBUG -Wundef -Wstrict-prototypes -Wno-trigraphs -Wno-size
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security -Wno-unused-variable \
 		   -fgnu89-inline -fgcse-las -fweb -frename-registers \
-		   -fprefetch-loop-arrays -fno-gcse $(YOFLAGS)
+		   -fno-gcse $(YOFLAGS)
 
 KBUILD_AFLAGS_KERNEL := $(YOFLAGS)
 KBUILD_CFLAGS_KERNEL := $(YOFLAGS)
@@ -593,16 +593,16 @@ endif # $(dot-config)
 all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,) -marm -mtune=cortex-a7 -fmodulo-sched -fmodulo-sched-allow-regmoves -fno-tree-vectorize -fno-inline-functions -Wno-array-bounds
+KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_BETTER
-KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,) -marm -mtune=cortex-a7 -fmodulo-sched -fmodulo-sched-allow-regmoves -fno-tree-vectorize -fno-inline-functions -Wno-array-bounds
+KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_BEST
-KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,) -marm -mtune=cortex-a7 -fmodulo-sched -fmodulo-sched-allow-regmoves -fno-tree-vectorize -fno-inline-functions -Wno-array-bounds
+KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_FAST
-KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,) -marm -mtune=cortex-a7 -fmodulo-sched -fmodulo-sched-allow-regmoves -fno-tree-vectorize -fno-inline-functions -Wno-array-bounds
+KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
 endif
 
 # conserve stack if available

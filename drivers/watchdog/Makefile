@@ -14,8 +14,6 @@ obj-$(CONFIG_WATCHDOG_CORE)	+= watchdog.o
 # that also fails then you can fall back to the software watchdog
 # to give you some cover.
 
-KBUILD_CFLAGS	+=-Ofast
-
 # ISA-based Watchdog Cards
 obj-$(CONFIG_PCWATCHDOG) += pcwd.o
 obj-$(CONFIG_MIXCOMWD) += mixcomwd.o

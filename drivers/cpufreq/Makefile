@@ -1,8 +1,6 @@
 #Flag
 #ccflags-y := -Wno-implicit-function-declaration
 
-KBUILD_CFLAGS	+=-Ofast
-
 # CPUfreq core
 obj-$(CONFIG_CPU_FREQ)			+= cpufreq.o
 # CPU Boost

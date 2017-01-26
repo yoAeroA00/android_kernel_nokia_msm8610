@@ -1,8 +1,7 @@
+
 #
 # Makefile for the linux kernel.
 #
-
-KBUILD_CFLAGS	+=-Ofast
 
 CPPFLAGS_vmlinux.lds := -DTEXT_OFFSET=$(TEXT_OFFSET)
 AFLAGS_head.o        := -DTEXT_OFFSET=$(TEXT_OFFSET)
