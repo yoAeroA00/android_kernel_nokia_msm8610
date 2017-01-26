@@ -2,8 +2,6 @@
 # Makefile for the linux kernel.
 #
 
-KBUILD_CFLAGS	+=-Ofast
-
 obj-$(CONFIG_ARM_GIC)		+= gic.o
 obj-$(CONFIG_ARM_VIC)		+= vic.o
 obj-$(CONFIG_ICST)		+= icst.o
