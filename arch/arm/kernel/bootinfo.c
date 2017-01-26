@@ -30,7 +30,6 @@
 #include <asm/bootinfo.h>
 #include <linux/notifier.h>
 #include <linux/persistent_ram.h>
-#include <linux/apanic_mmc.h>
 #include <linux/io.h>
 #include <linux/rslib.h>
 #include <linux/memblock.h>
@@ -206,19 +205,6 @@ static void bootinfo_lkmsg_bl(struct bl_build_sig *bl)
 		bl[i].item[MAX_BLD_SIG_ITEM - 1] = 0;
 		bl[i].value[MAX_BLD_SIG_VALUE - 1] = 0;
 		BOOTINFO_LKMSG("%s = %s\n", bl[i].item, bl[i].value);
-	}
-}
-
-static void bootinfo_apanic_annotate_bl(struct bl_build_sig *bl)
-{
-	int i;
-	for (i = 0; i < bl_build_sig_count; i++) {
-		bl[i].item[MAX_BLD_SIG_ITEM - 1] = 0;
-		bl[i].value[MAX_BLD_SIG_VALUE - 1] = 0;
-		apanic_mmc_annotate(bl[i].item);
-		apanic_mmc_annotate("=");
-		apanic_mmc_annotate(bl[i].value);
-		apanic_mmc_annotate("\n");
 	}
 }
 
@@ -574,7 +560,6 @@ static int __init bootinfo_init_module(void)
 	of_blsig();
 	proc_bootinfo = &proc_root;
 	create_proc_read_entry("bootinfo", 0, NULL, get_bootinfo, NULL);
-	bootinfo_apanic_annotate_bl(bl_build_sigs);
 	return platform_driver_register(&bootinfo_driver);
 }
 
