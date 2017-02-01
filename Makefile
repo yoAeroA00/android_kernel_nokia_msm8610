@@ -374,9 +374,9 @@ CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
 GPEFLAGS	= -fgraphite -fgraphite-identity -floop-nest-optimize -floop-flatten -floop-parallelize-all -floop-unroll-and-jam -ftree-loop-linear -ftree-loop-im -floop-interchange -floop-strip-mine -floop-block -ftree-loop-distribute-patterns
-YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -funswitch-loops -fvect-cost-model -std=gnu89 $(GPEFLAGS)
+YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -fvect-cost-model -std=gnu89 $(GPEFLAGS)
 else
-YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -funswitch-loops -fvect-cost-model -std=gnu89
+YOFLAGS		= -pipe -DNDEBUG -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fsingle-precision-constant -fpredictive-commoning -mcpu=cortex-a7 -marm -mtune=cortex-a7 -mfpu=neon-vfpv4 -ftree-vectorize -ftree-loop-ivcanon -fgcse-after-reload -fmodulo-sched -fmodulo-sched-allow-regmoves -mvectorize-with-neon-quad -fno-aggressive-loop-optimizations -fno-delete-null-pointer-checks -ftree-partial-pre -fvect-cost-model -std=gnu89
 endif
 CFLAGS_MODULE   = -DMODULE -fno-pic $(YOFLAGS)
 AFLAGS_MODULE   = -DMODULE $(YOFLAGS)
@@ -593,16 +593,16 @@ endif # $(dot-config)
 all: vmlinux
 
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
+KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_BETTER
-KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
+KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_BEST
-KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
+KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_FAST
-KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,) -fno-tree-vectorize -fno-inline-functions
+KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
 endif
 
 # conserve stack if available
