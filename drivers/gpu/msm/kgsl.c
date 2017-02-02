@@ -956,8 +956,6 @@ int kgsl_close_device(struct kgsl_device *device)
 		/* Fail if the wait times out */
 		BUG_ON(atomic_read(&device->active_cnt) > 0);
 
-		/* Force power on to do the stop */
-		kgsl_pwrctrl_enable(device);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_INIT);
 	}
@@ -4285,6 +4283,8 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
+	struct sched_param param = { .sched_priority = 2 };
+
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0, KGSL_DEVICE_MAX,
 				  KGSL_NAME);
@@ -4344,6 +4344,16 @@ static int __init kgsl_core_init(void)
 
 	kgsl_mmu_set_mmutype(ksgl_mmu_type);
 
+	init_kthread_worker(&kgsl_driver.worker);
+
+	kgsl_driver.worker_thread = kthread_run(kthread_worker_fn,
+		&kgsl_driver.worker, "kgsl_worker_thread");
+
+	if (IS_ERR(kgsl_driver.worker_thread)) {
+		pr_err("unable to start kgsl thread\n");
+		goto err;
+	}
+
 	if (KGSL_MMU_TYPE_GPU == kgsl_mmu_get_mmutype()) {
 		result = kgsl_ptdata_init();
 		if (result)
@@ -4352,6 +4362,8 @@ static int __init kgsl_core_init(void)
 
 	if (kgsl_memfree_hist_init())
 		KGSL_CORE_ERR("failed to init memfree_hist");
+
+	sched_setscheduler(kgsl_driver.worker_thread, SCHED_FIFO, &param);
 
 	return 0;
 
