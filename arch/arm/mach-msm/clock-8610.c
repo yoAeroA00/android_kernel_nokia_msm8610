@@ -1723,7 +1723,7 @@ static struct rcg_clk gfx3d_clk_src = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
 #ifdef CONFIG_GPU_CLOCKMOD
-		VDD_DIG_FMAX_MAP3(LOW, 100000000, NOMINAL, 320000000, HIGH,
+		VDD_DIG_FMAX_MAP3(LOW, 160000000, NOMINAL, 320000000, HIGH,
 					465000000),
 #else
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 300000000, HIGH,

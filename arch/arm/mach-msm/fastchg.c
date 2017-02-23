@@ -31,7 +31,7 @@
 #define FAST_CHARGE_VERSION	"version 1.0 by Paul Reioux"
 
 int force_fast_charge;
-int fast_charge_level = FAST_CHARGE_1250;
+int fast_charge_level = FAST_CHARGE_750;
 
 /* sysfs interface for "force_fast_charge" */
 static ssize_t force_fast_charge_show(struct kobject *kobj,
