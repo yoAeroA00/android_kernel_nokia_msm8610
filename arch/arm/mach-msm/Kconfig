@@ -3131,7 +3131,7 @@ config CONFIG_CYPRESS_CAPSENSE_PROGRAMMING
 
 config CPU_UNDERCLOCK
 	bool "CPU Frequency UnderClock by yoAeroA00"
-	default y
+	default n
 	help
 	  This sets kernel to Allow UnderClock CPU Frequency Values.
 
