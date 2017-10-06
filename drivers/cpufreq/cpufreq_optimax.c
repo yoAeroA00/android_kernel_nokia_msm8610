@@ -166,9 +166,9 @@ static struct dbs_tuners {
 	.middle_grid_load = DEF_MIDDLE_GRID_LOAD,
 	.high_grid_load = DEF_HIGH_GRID_LOAD,
 	.ignore_nice = 0,
-	.powersave_bias = 0,
+	.powersave_bias = 1,
 	.sync_freq = 0,
-	.optimal_freq = 0,
+	.optimal_freq = 1,
 	.optimal_max_freq = DEF_OPTIMAL_FREQ,
 	.input_boost = 0,
 };

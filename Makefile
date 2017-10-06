@@ -255,8 +255,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-HOSTCFLAGS   = -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -fgcse-las -pipe -DNDEBUG -std=gnu89
-HOSTCXXFLAGS = -pipe -DNDEBUG -O2 -fgcse-las
+HOSTCFLAGS   = -Wmissing-prototypes -Wstrict-prototypes -O3 -fno-tree-vectorize -fomit-frame-pointer -fgcse-las -pipe -DNDEBUG -std=gnu89
+HOSTCXXFLAGS = -pipe -DNDEBUG -O3 -fgcse-las -fno-tree-vectorize
 
 ifdef CONFIG_CC_GRAPHITE_OPTIMIZATION
 # More Graphite
@@ -596,10 +596,10 @@ ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_BETTER
-KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
+KBUILD_CFLAGS	+= -O2 $(call cc-disable-warning,maybe-uninitialized,) -g0 -fmodulo-sched -fmodulo-sched-allow-regmoves -fomit-frame-pointer -fno-tree-vectorize -Wno-array-bounds -fivopts -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_BEST
-KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions
+KBUILD_CFLAGS	+= -O3 $(call cc-disable-warning,maybe-uninitialized,) -g0 -fmodulo-sched -fmodulo-sched-allow-regmoves -fomit-frame-pointer -fno-tree-vectorize -Wno-array-bounds -fivopts -fno-inline-functions
 endif
 ifdef CONFIG_CC_OPTIMIZE_FAST
 KBUILD_CFLAGS	+= -Ofast $(call cc-disable-warning,maybe-uninitialized,) -fomit-frame-pointer -fno-tree-vectorize -fno-inline-functions

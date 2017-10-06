@@ -584,6 +584,7 @@ static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2,
 				vdd_sr2_levels, NULL);
 
 static struct pll_freq_tbl apcs_pll_freq[] = {
+	F_APCS_PLL( 768000000, 40, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 787200000, 41, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
@@ -1699,15 +1700,12 @@ static struct clk_freq_tbl ftbl_oxili_gfx3d_clk[] = {
 	F_MM( 50000000,  gpll0, 12, 0, 0),
 	F_MM( 75000000,  gpll0,  8, 0, 0),
 	F_MM(100000000,  gpll0,  6, 0, 0),
-#ifdef CONFIG_GPU_CLOCKMOD
-	F_MM(160000000,  gpll0,  4, 0, 0),
-	F_MM(210000000,  gpll0,  3, 0, 0),
-	F_MM(320000000,  gpll0,  2, 0, 0),
-	F_MM(465000000, mmpll1,  3, 0, 0),
-#else
 	F_MM(150000000,  gpll0,  4, 0, 0),
 	F_MM(200000000,  gpll0,  3, 0, 0),
 	F_MM(300000000,  gpll0,  2, 0, 0),
+#ifdef CONFIG_GPU_CLOCKMOD
+	F_MM(460000000, mmpll1,  3, 0, 0),
+#else
 	F_MM(400000000, mmpll1,  3, 0, 0),
 #endif
 	F_END,
@@ -1723,8 +1721,8 @@ static struct rcg_clk gfx3d_clk_src = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
 #ifdef CONFIG_GPU_CLOCKMOD
-		VDD_DIG_FMAX_MAP3(LOW, 160000000, NOMINAL, 320000000, HIGH,
-					465000000),
+		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 300000000, HIGH,
+					460000000),
 #else
 		VDD_DIG_FMAX_MAP3(LOW, 150000000, NOMINAL, 300000000, HIGH,
 					400000000),

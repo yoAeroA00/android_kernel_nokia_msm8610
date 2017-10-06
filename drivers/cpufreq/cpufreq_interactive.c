@@ -71,11 +71,11 @@ static struct mutex gov_lock;
 static unsigned int hispeed_freq;
 
 /* Go to hi speed when CPU load at or above this value. */
-#define DEFAULT_GO_HISPEED_LOAD 99
+#define DEFAULT_GO_HISPEED_LOAD 98
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
 
 /* Go to low speed when CPU load at or above this value. */
-#define DEFAULT_GO_LOWSPEED_LOAD 10
+#define DEFAULT_GO_LOWSPEED_LOAD 15
 static unsigned long go_lowspeed_load = DEFAULT_GO_LOWSPEED_LOAD;
 
 /* Sampling down factor to be applied to min_sample_time at max freq */
