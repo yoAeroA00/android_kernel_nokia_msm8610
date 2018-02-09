@@ -9,10 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-/* Reserve for persistent memory - kernel hard boot */
-/memreserve/ 0x3fb00000 0x100000;
-
 /* Reserve for persistent memory - ram console */
 /memreserve/ 0x3fc00000 0x20000;
 

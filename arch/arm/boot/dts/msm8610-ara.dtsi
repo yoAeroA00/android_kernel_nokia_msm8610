@@ -11,7 +11,7 @@
  */
 
 &soc {
-	ram_console {
+	rram_console {
                 compatible = "android,ram-console";
                 status = "ok";
 

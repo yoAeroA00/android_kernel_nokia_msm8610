@@ -3112,16 +3112,6 @@ config PM_DEBUG_WAKEUP
 	default y
 	bool "Report wakeup source in a uevent"
 
-config CONFIG_CYPRESS_CAPSENSE_PROGRAMMING
-	bool "Flash CapSense before loading Modem"
-	default n
-	help
-	  Firmware for CapSense should be flashed/upgraded before modem
-	  starts, because modem will use it to do measurements. Flashing
-	  firmware takes about 4-5sec and if modem is active then we may
-	  have race conditions AP<->Modem. Because of that we have to finish
-	  flashing/updating before modem become active
-
 config CPU_UNDERCLOCK
 	bool "CPU Frequency UnderClock by yoAeroA00"
 	default n

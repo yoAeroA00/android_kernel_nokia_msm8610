@@ -4,7 +4,7 @@
 
 choice
 	prompt "Timer frequency"
-	default HZ_500
+	default HZ_600
 	help
 	 Allows the configuration of the timer frequency. It is customary
 	 to have the timer interrupt run at 1000 Hz but 100 Hz may be more
@@ -45,6 +45,12 @@ choice
 	help
 	 500 Hz is a good compromise choice if you want everything
 	 smoother than HZ_300 does.
+
+	config HZ_600
+		bool "600 HZ"
+	help
+	 600 Hz is a good compromise choice if you want everything
+	 smoother than HZ_300 does and performance nearer to HZ_1000.
 
 	config HZ_1000
 		bool "1000 HZ"
@@ -119,6 +125,7 @@ config HZ
 	default 250 if HZ_250_NODEFAULT
 	default 300 if HZ_300
 	default 500 if HZ_500
+	default 600 if HZ_600
 	default 1000 if HZ_1000
 	default 1500 if HZ_1500
 	default 2000 if HZ_2000
